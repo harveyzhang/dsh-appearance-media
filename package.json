@@ -1,0 +1,48 @@
+{
+  "name": "dsh-appearance-media",
+  "version": "0.1.0",
+  "description": "DSH 外观媒体插件：为背景、片头与屏保提供统一的素材入口。",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "icon.svg",
+    "locale",
+    "docs",
+    "lib",
+    "src",
+    "build-client.mjs"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "*"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.19.0"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "dsh": "^0.2.0-rc.1"
+  }
+}

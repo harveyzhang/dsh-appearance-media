@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Appearance media",
+    "description": "One place to manage background, boot and screensaver media for DSH. The media library is open: import local videos and images, list the entries, delete them. The one configuration field, the data directory, is edited on Plugins → dsh-appearance-media → its package page.",
+    "detail": "docs/DETAIL.md"
+  }
+}

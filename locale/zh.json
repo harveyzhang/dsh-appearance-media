@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "外观媒体",
+    "description": "为 DSH 统一管理背景、片头与屏保三类外观素材。素材库已开放：可导入本地视频与图片、列出条目、删除条目。唯一的配置字段「数据目录」在「插件 → dsh-appearance-media → 它的包页」上编辑。",
+    "detail": "docs/DETAIL.md"
+  }
+}

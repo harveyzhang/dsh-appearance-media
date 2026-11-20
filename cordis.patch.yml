@@ -1,0 +1,12 @@
+# dsh-appearance-media bundle layer: mounted by `dsh plugin add`, so a profile
+# gets this row without manual cordis.patch.yml edits. A profile-level patch
+# can still disable the row by id.
+#
+# The row carries NO `config:` section on purpose: every knob of this plugin
+# lives in the Host half's `Config` schema, and a matching patch row REPLACES
+# the whole config object rather than merging into it. Writing one here would
+# therefore be a second, competing source of truth.
+
+- insert:
+    - id: appearance-media
+      name: dsh-appearance-media

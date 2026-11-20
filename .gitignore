@@ -1,0 +1,11 @@
+# 依赖与构建缓存
+node_modules/
+*.log
+.DS_Store
+
+# remux 优化器的暂存目录（进程被 SIGKILL 时可能残留）
+.optimize-*/
+
+# 本地临时产物
+tmp/
+*.local
