@@ -17,6 +17,30 @@
 **一份素材库**：视频与图片统一放在 `~/.dsh/dsh-appearance-media/media/`（数据目录可配），
 三个表面共用；每条素材有预览。
 
+## 素材库
+
+- 目录：`~/.dsh/dsh-appearance-media/media/`（数据目录可配）
+- 支持 **mp4 / webm / ogv / jpg / jpeg / png / webp**（视频与图片都算素材）
+- **删除**：`DELETE /appearance-media/media/<id>`（选中被引用的素材时**清空那个槽位**，不留悬挂）
+  ⇒ 界面上：素材选择器里每条后面有「优化 / 删除 / 预览」，删除有二次确认。
+  ⇒ 旧地址 `POST /appearance-media/remove` 已退役（410，指向上面这条）。
+- **优化**：`POST /appearance-media/optimize` —— 无损把 `moov` 挪到文件头（faststart），
+  浏览器不用下完整个文件就能出第一帧。
+
+## 从外面搬素材
+
+```bash
+cd DSH插件开发/方案与工具
+python3 import-media-sources.py we   <WE根目录>   # Wallpaper Engine 的视频壁纸
+python3 import-media-sources.py dir <目录>        # 任意目录里的视频/图片
+python3 import-media-sources.py fetch --source X # 在线来源（清单默认只留许可明确的，默认关）
+python3 sync-upstream-media.py --apply           # P05/P06 的素材（认 faststart 优化版）
+```
+
+**默认是演练，`--apply` 才真写；只加不删；每次导入都写一条出处记录**
+（`~/.dsh/dsh-appearance-media/sources.jsonl`：来源、许可、URL、SHA-256）。
+来源与许可见 [`03-素材来源清单.md`](../../方案与工具/03-素材来源清单.md)。
+
 ## 开发
 
 ```bash

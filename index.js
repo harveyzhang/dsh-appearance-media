@@ -75,6 +75,7 @@ import { dataDir as resolveDataDir, mediaDir } from './lib/paths.js'
 import { publicEntry, resolveById } from './lib/catalog.js'
 import { buildRoutes, PLUGIN_VERSION } from './lib/routes/catalog.js'
 import { buildIdleRoutes } from './lib/routes/idle.js'
+import { buildMediaRoutes } from './lib/routes/media.js'
 import { buildSlotsRoutes } from './lib/routes/slots.js'
 import { buildUploadRoutes } from './lib/routes/upload.js'
 import { MAX_OPTIMIZE_BYTES, optimizeInPlace } from './lib/remux.js'
@@ -838,6 +839,14 @@ export function apply(ctx, config) {
         version: VERSION,
       }),
       ...buildUploadRoutes({
+        readDataDir: () => resolveDataDir(config),
+      }),
+      // ★ THE MEDIA ROUTE: the bytes of one material (GET, HEAD) and the
+      // material itself (DELETE). It is ONE route because the Host's prefix
+      // table holds one route per path — and the delete is the Host's work:
+      // the browser cannot unlink a file in the media directory, and the Host
+      // is the only side that knows which slots point at the material.
+      ...buildMediaRoutes({
         readDataDir: () => resolveDataDir(config),
       }),
       // The slot configuration: which material each of the three slots plays,

@@ -28,6 +28,7 @@ const pkgDir = fileURLToPath(new URL('..', import.meta.url))
 
 const CATALOG_PATH = '/appearance-media/catalog.json'
 const HEALTH_PATH = '/appearance-media/health'
+const MEDIA_PATH = '/appearance-media/media'
 
 /** @type {Array<[string, boolean, string]>} */
 const checks = []
@@ -334,6 +335,30 @@ try {
   record('the catalog and the health probe are exact routes',
     readOnly.length === 2 && readOnly.every((route) => route.kind === 'exact'),
     readOnly.map((route) => route.kind).join(', '))
+
+  // ★ THE MEDIA ROUTE — THE BYTES AND THE DELETE, IN ONE ROUTE.
+  //
+  //   The Host's prefix table holds ONE route per path (`register()` throws
+  //   on a duplicate `(kind, path)`,
+  //   `dsh-host-webserver/lib/index.js:376`), so the bytes of a material and
+  //   the deletion of that material cannot be two routes. The route has to be
+  //   registered exactly once, or the plugin cannot mount at all — and it has
+  //   to answer the three methods it claims.
+  const mediaRoutes = harness.routes.filter((route) => route.path === MEDIA_PATH)
+  record('the media route is registered exactly once, as a prefix route',
+    mediaRoutes.length === 1 && mediaRoutes[0].kind === 'prefix',
+    mediaRoutes.map((route) => route.kind + ':' + route.path).join(', ')
+    || 'no media route')
+  const mediaRoute = mediaRoutes[0]
+  if (mediaRoute !== undefined) {
+    const put = call(mediaRoute, 'PUT')
+    record('the media route refuses PUT with 405',
+      put.status === 405,
+      String(put.status))
+    record('the media route names the methods it answers',
+      header(put.headers, 'allow') === 'GET, HEAD, DELETE',
+      String(header(put.headers, 'allow')))
+  }
 
   const catalogRoute = harness.routes.find((route) => route.path === CATALOG_PATH)
   const healthRoute = harness.routes.find((route) => route.path === HEALTH_PATH)

@@ -1006,9 +1006,14 @@ try {
       + ' destroyedByHandler=' + String(answer.req?.destroyedByHandler))
   }
 
-  /* ---- #38 the remove route's 413 also drains (review 1) --------------- */
+  /* ---- #38 the retired remove route answers 410 and points at the new one ------- */
 
   {
+    // ★ The old `POST /appearance-media/remove` used to unlink the file FIRST
+    //   and rewrite the ledger afterwards, with no id guard and no thought for
+    //   the slots that pointed at the material. It is retired: it answers 410
+    //   and names its replacement, which does the same job with the steps in
+    //   the safe order.
     const removeRoute = route('exact', REMOVE_PATH)
     const answer = await drive(removeRoute, {
       method: 'POST',
@@ -1016,10 +1021,12 @@ try {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id: 'up-000000000000', note: 'z'.repeat(BODY_LIMIT + 1024) }),
     })
-    record('#38 the remove route answers 413 for an over-sized body without destroying the request',
-      answer.status === 413
-      && answer.req?.destroyedByHandler === false,
-      'status=' + String(answer.status) + ' destroyedByHandler=' + String(answer.req?.destroyedByHandler)
+    let replacement = ''
+    try { replacement = String(JSON.parse(answer.text).replacement || '') } catch { replacement = '' }
+    record('#38 the retired remove route answers 410 and names its replacement',
+      answer.status === 410
+      && replacement.indexOf('DELETE /appearance-media/media/') === 0,
+      'status=' + String(answer.status) + ' replacement=' + replacement
       + ' body=' + answer.text.slice(0, 120))
   }
 
