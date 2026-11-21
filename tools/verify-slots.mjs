@@ -34,11 +34,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const pkgDir = fileURLToPath(new URL('..', import.meta.url))
 
-// The fixtures live in the project's `.sdd` directory, outside the package —
-// they are test material, not shipped material.
+// ★ THE FIXTURES LIVE INSIDE THE REPOSITORY.
+//
+// They used to sit in the surrounding project's `.sdd` directory, which is
+// outside this repository: a fresh clone of the repository did not have them,
+// and the suite crashed with ENOENT on the first fixture it opened. The
+// material is only 140 kB, so it ships with the code that uses it.
+// `DSHAM_FIXTURES` still overrides the location.
 const fixturesDir = process.env.DSHAM_FIXTURES !== undefined && process.env.DSHAM_FIXTURES !== ''
   ? process.env.DSHAM_FIXTURES
-  : fileURLToPath(new URL('../../../.sdd/appearance-media/fixtures', import.meta.url))
+  : fileURLToPath(new URL('./fixtures', import.meta.url))
 
 const SLOTS_PATH = '/appearance-media/slots'
 const CATALOG_PATH = '/appearance-media/catalog.json'

@@ -40,10 +40,10 @@
 //   node tools/verify-package.mjs --list     the file list only, no assertions
 
 import { execFileSync } from 'node:child_process'
-import { cpSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PACKAGE_JSON = join(ROOT, 'package.json')
@@ -394,6 +394,44 @@ negativeControl(
   (dir, broken) => {
     delete broken.homepage
   })
+
+/* ───────────────────────────────────────────────────────────────────────────
+   The repository must be self-contained.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+// Every suite resolves its material with `new URL('...', import.meta.url)`.
+// A reference that climbs out of the repository resolves to a file that only
+// exists on the machine that wrote it — the suite then dies with ENOENT on a
+// fresh checkout, which is how the material outside the repository was found
+// the second time. Anything outside is refused here, and the material that
+// used to live outside now lives in tools/fixtures/.
+{
+  // ★ Without the trailing slash: `new URL('..', …)` keeps one, and then
+  //   `repoRoot + '/'` would be a double slash that nothing starts with.
+  const repoRoot = fileURLToPath(new URL('..', import.meta.url)).replace(/\/+$/, '')
+  const offenders = []
+  for (const name of readdirSync(join(repoRoot, 'tools')).filter((n) => n.endsWith('.mjs'))) {
+    const text = readFileSync(join(repoRoot, 'tools', name), 'utf8')
+    const pattern = /new URL\(\s*'([^']+)'\s*,\s*import\.meta\.url\s*\)/g
+    let match = pattern.exec(text)
+    while (match !== null) {
+      const reference = match[1]
+      if (reference.startsWith('..')) {
+        // ★ The reference is resolved against the SUITE that writes it, not
+        //   against this file: every suite sits in tools/, so the depth is the
+        //   same, but the file name is not.
+        const resolved = fileURLToPath(new URL(reference, pathToFileURL(join(repoRoot, 'tools', name))))
+        if (resolved !== repoRoot && !resolved.startsWith(repoRoot + '/')) {
+          offenders.push(name + ' → ' + reference)
+        }
+      }
+      match = pattern.exec(text)
+    }
+  }
+  print(verdict('no suite reaches outside the repository for its material',
+    offenders.length === 0,
+    offenders.length === 0 ? 'checked tools/*.mjs' : offenders.join(' | ')))
+}
 
 console.log('')
 const failed = checks.filter((check) => check.ok === false)

@@ -105,11 +105,7 @@ const FAST_SOURCE = process.env.DSHAM_REMUX_FAST !== undefined && process.env.DS
 const LIBRARY_DIR = join(homedir(), '.dsh', 'dsh-appearance-media', 'media')
 
 /** A real PNG, used to prove that a non-mp4 is refused. */
-const PNG_FIXTURE = (() => {
-  const inRepo = fileURLToPath(new URL('./fixtures/sample.png', import.meta.url))
-  if (existsSync(inRepo)) return inRepo
-  return fileURLToPath(new URL('../../../.sdd/appearance-media/fixtures/sample.png', import.meta.url))
-})()
+const PNG_FIXTURE = fileURLToPath(new URL('./fixtures/sample.png', import.meta.url))
 
 /** @type {Array<[string, boolean, string]>} */
 const checks = []
@@ -524,14 +520,12 @@ function fixtureMatches(which, bytes) {
  * @returns the path, or null when it is not here.
  */
 function findUpstreamClip() {
-  const candidates = [
-    fileURLToPath(new URL(
-      '../../../附件/插件源码/dsh-boot-animation/assets/screensaver/屏保1.mp4', import.meta.url)),
-    '/Users/harvey/Space/20_Projects/个人/开发工具/DSH/DSH插件开发/附件/插件源码/dsh-boot-animation/assets/screensaver/屏保1.mp4',
-  ]
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate
-  }
+  // ★ Only the environment variable points at real material. Nothing in this
+  //   suite may reference a path outside the repository: a checkout on
+  //   another machine — or another person's machine — has neither this
+  //   project's layout nor this developer's home directory.
+  const fromEnv = process.env.DSHAM_REMUX_TAIL
+  if (fromEnv !== undefined && fromEnv !== '' && existsSync(fromEnv)) return fromEnv
   return null
 }
 
