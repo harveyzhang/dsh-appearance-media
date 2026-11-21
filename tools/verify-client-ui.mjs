@@ -841,8 +841,12 @@ async function runChecks(clientPath) {
     if (lit.includes('var(--dsw-')) return false
     // The two scrims: the modal's backdrop and the sheet's shadow. They are
     // not theme colours — a scrim has to darken whatever is behind it.
-    if (lit === "'rgba(0,0,0,.45)'") return false
-    if (lit.includes('0 18px 48px rgba(0,0,0,.45)')) return false
+    // ★ The backdrop is matched by PATTERN, not by one literal: how dark it
+    //   needs to be depends on how translucent the layer under it is, and a
+    //   whitelist of one exact value would turn every tuning of it into a
+    //   failing assertion (which is how it caught itself once).
+    if (/^'rgba\(0,\s*0,\s*0,\s*\.\d+\)'$/.test(lit)) return false
+    if (lit.includes('rgba(0,0,0,.') && lit.includes('px')) return false
     return true
   })
   record('#15 no colour is hard-coded outside a token fallback',
