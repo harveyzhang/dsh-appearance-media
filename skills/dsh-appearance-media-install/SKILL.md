@@ -25,7 +25,11 @@ DSH 宿主提供了装插件的正规工具 **`plugin_manager`**：
 - `plugin_manager(action="list_bundles")` / `list_plugins` —— 先看清楚当前 profile 里已经有什么、叫什么。
 - `plugin_manager(action="set_bundle", target="<id>", enabled=false/true)` —— 启用或停用。
 
-**包名**：`dsh-appearance-media`（已发布到 npm；也可以从 GitHub 装：`github:harveyzhang/dsh-appearance-media`）。
+**装哪个源**：
+- **GitHub（现在就能用）**：`github:harveyzhang/dsh-appearance-media`
+- **npm（★ 目前还没发，registry 上查不到这个包 ⇒ 用包名会 404）**：
+  等它真的发到 npm 之后才能用 `dsh-appearance-media` 这个包名。
+  **★ 动手前先确认**：`npm view dsh-appearance-media version` 能出版本号才用包名，否则一律用 `github:` 源。
 
 **装完必须重启宿主**（或者按工具返回的 `restart-required` 提示做）——
 插件的代码清单是在 DSH 启动时一次性固定的，**不重启就看不到变化**，刷新页面没用。

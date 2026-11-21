@@ -13,7 +13,8 @@
 > that takes over when you walk away. All three read from one shared media
 > library, so a clip you like only has to be added once.
 >
-> Install it from the plugin market with one click, or drop the package into a
+> Three ways in: let the agent inside DSH install it (fastest), use the plugin
+> market once the plugin has been listed there, or drop the package into a
 > profile by hand. The package ships no media of its own — you bring the
 > videos and images, and the plugin takes care of the rest.
 
@@ -72,9 +73,55 @@
 
 ## 安装
 
-### 方式一：从插件市场一键装（推荐）
+三条路，按「普通人能走通的程度」排：**A 最快，B 一键，C 是给前两条都走不通的人留的后备办法。**
 
-这是给普通用户的路径，**四步，全程鼠标操作**：
+### 路径 A：让 DSH 里的 agent 装（最快）
+
+这个仓库自带一个 skill，正文在 [`skills/dsh-appearance-media-install/SKILL.md`](skills/dsh-appearance-media-install/SKILL.md)，
+专门讲怎么装这个插件、怎么验收、素材从哪来、坏了怎么查。
+
+**第一步：把 skill 放进 DSH 的技能目录**（在仓库根目录执行）：
+
+```bash
+mkdir -p ~/.dsh/skills/dsh-appearance-media-install
+cp skills/dsh-appearance-media-install/SKILL.md ~/.dsh/skills/dsh-appearance-media-install/SKILL.md
+```
+
+> ★ **放 `~/.dsh/skills/`，不要放 `~/.agents/skills/`。**
+> `~/.agents/skills/` 是好几个 agent 共用的目录（Claude Code / Codex / Cursor 等都会去扫），
+> 塞进去会影响到那些工具；`~/.dsh/skills/` 只有 DSH 读。
+
+**第二步：在 DSH 里说一句话**：
+
+> 帮我装一下外观媒体插件
+
+agent 会照 skill 里的步骤装。
+
+> ★ **装哪个源**：本插件**还没发到 npm**，所以给 agent 的安装规格是
+> `github:harveyzhang/dsh-appearance-media`（走 GitHub 源，不是 npm 包名）。
+> 将来发到 npm 之后，换成包名 `dsh-appearance-media` 即可。
+
+**skill 里具体写了什么**（这是它正文里的原话要点，不是猜的）：
+
+- **装**：首选宿主自己的工具 `plugin_manager(action="install_bundle", target=…)`；
+  skill 里明确写着「不要用 shell 去复刻这一步」（宿主文档也是这么要求的）。
+  装完**必须重启宿主**——插件的代码清单在 DSH 启动时就固定了，刷新页面没用。
+- **桌面版的坑**：`dsh plugin --profile desktop add …` 走不通，会撞
+  `error: profile "desktop" is managed exclusively by the Electron application`；
+  `plugin_manager` 走的是宿主自己的通道，不受这条限制。
+- **手动落地三步**（最后手段，见下面的路径 C）。
+- **验收清单**（不是「命令没报错」就算装好了）：卡片在不在、
+  `GET /appearance-media/catalog.json` 是不是 200、素材库里有几条、客户端那半边在不在。
+- **素材从哪来**（上传 / 批量导入 / 导入 WE）和一张常见故障排查表。
+
+### 路径 B：插件市场（一键装）
+
+> ★ **现在市场里还没有它。**
+> 本插件**还没有被收录进官方精选列表**，所以在市场里搜 `dsh-appearance-media` **搜不到**，
+> 点不了安装。收录的 PR 合并、索引重建之后，它才会出现在市场里。
+> 在那之前，请走路径 A 或路径 C。
+
+等它收录之后，装法是四步，全程鼠标：
 
 1. 打开 DSH 的 **插件** 页面。
 2. 切到 **插件市场** 标签页（老版本 DSH 在 **设置 → 插件市场**）。
@@ -87,34 +134,76 @@
 > **为什么要重启？**
 > DSH 在启动的时候一次性决定要加载哪些插件。这次安装改变了「要加载哪些」，
 > 所以必须重启一次才会生效。刷新页面不管用。
->
-> **首次使用前还有一步**：插件**不带任何素材**（这是所有 DSH 插件的常态，
-> 官方目录里绝大多数插件都不打包素材）。请先看下一节「素材从哪来」，
-> 放一条视频进去，否则三个表面都会是空的。
 
-### 方式二：从 GitHub 装（想装到别的 profile，或者不想用市场）
+#### 它凭什么会出现在市场里？
 
-DSH 自带一个命令行装插件的工具，装到**非桌面版**的 profile 只要一行：
+市场的索引**不是实时搜 npm**。可视化插件市场（`dshmarket`）读的是一份固定的索引文件：
+
+```
+https://awesome-dsh-plugin.com/plugins.json
+```
+
+这份索引由官方精选列表仓库
+[`awesome-dsh-plugin/awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
+**自动生成**：每个插件一个 `data/plugins/<owner>__<repo>.yml`，仓库里的
+`scripts/build-index.mjs`、`scripts/publish-catalog.mjs` 把它们编译成索引，
+`.github/workflows/build-site.yml` 在合并之后自动跑。
+
+所以让本插件出现在市场里，要做的是**给那个仓库提一个 PR、加一个 yml 文件**
+（一个文件就是全部投稿；合并后两份 README 由脚本自动重新生成，不用手工改）。
+收录有几道门槛，CI 自动查：
+
+| 门槛 | 本插件现在的情况 |
+| --- | --- |
+| `package.json` 声明 `dsh.bundle`（只声明 `dsh.client` 不算） | ✅ 已声明（`dsh.bundle.patch` 指向 `cordis.patch.yml`） |
+| 仓库建满 1 天 | ⏳ 本仓库建于 2026-11-20（UTC+8），这一关要到 **2026-11-21 23:50（UTC+8）** 之后才过 |
+| 仓库打 `dsh-plugin` topic | ✅ 已打 |
+| 描述属实、分类合适（维护者人工看） | 待评审 |
+
+投稿文件本仓库已经备好了：`.catalog/harveyzhang__dsh-appearance-media.yml`。
+
+#### 点安装时走哪条下载通道？
+
+市场装插件的顺序是：**有 npm 包就走 npm registry，没有就从 GitHub 整仓拉下来装。**
+所以**发到 npm 决定的是「装得更顺」，不是「能不能被搜到」**：
+
+- **发了 npm**：装的是预构建产物，**免掉 pnpm 的构建授权**（`allowBuilds`）这一步，最快。
+- **没发 npm**：从 GitHub 整仓拉源码自己构建，慢一点，还会多卡一次构建授权。
+
+★ **本插件目前还没发到 npm**（npm registry 上查不到 `dsh-appearance-media`），
+所以在它被收录进市场之前，命令行装法要写 `github:` 源（见路径 C）。
+
+### 路径 C：手动落地（后备）
+
+前两条都走不通时——不能用（也不想）在 DSH 里让 agent 装，市场里也还没收录——
+用下面的命令。**这一节是后备办法，不是首选。**
+
+**命令行一行（只对非桌面 profile 有效）**
+
+DSH 自带一个命令行装插件的工具，它把参数原样转给 pnpm：
 
 ```bash
-dsh plugin --profile web add dsh-appearance-media
+dsh plugin --profile web add github:harveyzhang/dsh-appearance-media
 ```
 
 `web` 换成你实际的 profile 名（`web` / `tui` / `sdk` / `headless` …）。
-这条命令是从 npm 拉预构建的包，装完**重启一下 DSH** 即可。
+装完**重启一下 DSH** 即可。
 
-也可以直接从 GitHub 仓库装（在**目标 profile 的目录**里执行，让包管理器装到那儿去）：
+> **为什么写的是 `github:` 而不是包名？**
+> `dsh plugin --profile web add dsh-appearance-media` 走的是 npm registry，
+> 而本插件**还没发到 npm**（registry 上查不到），所以现在必须写 GitHub 源。
+> 将来发到 npm 之后，这一行就能简化成包名。
+
+也可以直接在**目标 profile 的目录**里执行，让包管理器装到那儿去：
 
 ```bash
 cd ~/.dsh/profiles/web
 pnpm add github:harveyzhang/dsh-appearance-media
 ```
 
-> 桌面版 DSH 请走上面的**方式一**或者**方式三**——原因见本节末尾。
+**手动落地三步（把插件目录放进任何一个 profile）**
 
-### 方式三：手动落地
-
-如果你没法用插件市场、或者想把插件装到**别的** profile 里，按下面三步走。
+如果你想把插件手动放进一个 profile（桌面版的 `desktop` profile 尤其需要），按下面三步走。
 
 **第 ① 步：把插件目录放进目标 profile**
 
@@ -182,7 +271,7 @@ console.log("bundles now:", j.dsh.profile.bundles.join(", "));
 DSH 自带一个命令行装插件的工具，手写的话本该只要一行：
 
 ```bash
-dsh plugin --profile web add dsh-appearance-media
+dsh plugin --profile web add github:harveyzhang/dsh-appearance-media
 ```
 
 但**桌面版 DSH 用不了这一行**。桌面版的 profile（`desktop`）由桌面应用自己独占管理，
@@ -193,11 +282,16 @@ $ dsh plugin --profile desktop add dsh-appearance-media
 error: profile "desktop" is managed exclusively by the Electron application
 ```
 
-所以桌面版只能走**方式一**（市场一键装）或者**方式三**（手动三步）。
+所以桌面版只能走**路径 A**（让 agent 装）、**路径 B**（市场，等收录之后），
+或者**上面那套手动三步**。
 **其它 profile（`web`、`tui`、`sdk` 这些）没有这个限制**，那一行命令可以直接用。
 
 > 这不是 DSH 的毛病，是桌面应用的自我保护：它自己管着那个 profile，
 > 不许别人从外面改，改一半崩了没人收拾。
+
+> **首次使用前还有一步**：插件**不带任何素材**（这是所有 DSH 插件的常态，
+> 官方目录里绝大多数插件都不打包素材）。请先看下一节「素材从哪来」，
+> 放一条视频进去，否则三个表面都会是空的。
 
 ---
 
@@ -220,18 +314,47 @@ DSH 官方插件目录里的插件也基本都不打包素材。
 
 ### ② 批量导入工具（素材多的时候用）
 
-仓库外的配套脚本能一次导入一整个目录：
+配套的导入脚本在 **DSH 插件开发工作区**里（不在插件包里），一次能扫一整个目录：
 
 ```bash
 # 导入任意目录里的视频和图片
-python3 import-media-sources.py dir ~/Movies --apply
+python3 DSH插件开发/方案与工具/import-media-sources.py dir ~/Movies --apply
 
 # 导入 Wallpaper Engine 的视频壁纸
-python3 import-media-sources.py we /path/to/steamapps --apply
+python3 DSH插件开发/方案与工具/import-media-sources.py we /path/to/steamapps --apply
 ```
 
+> 上面命令里的路径相对 **DSH 插件开发工作区的根目录**。
+
 **默认是演练**（只报告、不写任何文件），**加 `--apply` 才真导入**。
-它只加不删，每次导入都会写一条出处记录（来源、许可、地址、SHA-256）。
+它只加不删，每次导入都会写一条出处记录（来源、许可、地址、SHA-256），
+追加在 `~/.dsh/dsh-appearance-media/sources.jsonl` 里。
+
+### 怎么加更多素材
+
+三条路，从简到繁：
+
+1. **在插件页面里上传** —— 卡片里的「素材库」下方，「导入一个视频或图片（≤ 96 MiB）」，单个文件传上去。
+2. **批量导入一个目录** —— 一条命令扫一个目录（见上面的 ②）：
+   ```bash
+   python3 DSH插件开发/方案与工具/import-media-sources.py dir <目录>
+   ```
+   **默认只演练**，加 `--apply` 才真导入。
+3. **导入 Wallpaper Engine 的视频壁纸** ——
+   ```bash
+   python3 DSH插件开发/方案与工具/import-media-sources.py we <WE 安装目录>
+   ```
+
+**怎么加一个新的在线素材源**：编辑 `DSH插件开发/方案与工具/media-sources.json` 这个来源清单——
+每条源写着名称、URL 模板、许可说明。**在线抓取默认是关的**
+（清单里 `enabled` 默认是 `false`，要抓得用 `--source <名字>` 点名才生效）；
+清单里只留**许可说得清**的源，许可混杂的源不要往里加。
+
+想先看看清单里现在有什么（不联网）：
+
+```bash
+python3 DSH插件开发/方案与工具/import-media-sources.py fetch --list
+```
 
 #### 关于 Wallpaper Engine
 
@@ -380,5 +503,4 @@ node tools/negative-controls-task7.mjs
 [dsh-video-skin](https://github.com/Something11235/dsh-video-skin)（作者 Something11235，MIT）、
 [dsh-wallpaper-engine](https://github.com/elysia395/dsh-wallpaper-engine)（作者 elysia395，MIT，npm 包名 `dsh-plugin-wallpaper-engine`）。
 
-DeepSeek Harness、DSH 与 Cordis 是各自所有者的商标。
-本插件是独立项目，与它们无关，也没有得到它们的背书。
+DeepSeek Harness、DSH 与 Cordis 是各自所有者的商标。本插件是独立项目，与它们无关，也没有得到它们的背书。

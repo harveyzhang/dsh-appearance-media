@@ -45,6 +45,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+// ★ The repository root, once: without the trailing slash, because
+//   `new URL('..', …)` keeps one and `repoRoot + '/'` would then be a double
+//   slash that nothing starts with.
+const repoRoot = fileURLToPath(new URL('..', import.meta.url)).replace(/\/+$/, '')
+
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PACKAGE_JSON = join(ROOT, 'package.json')
 
@@ -408,7 +413,6 @@ negativeControl(
 {
   // ★ Without the trailing slash: `new URL('..', …)` keeps one, and then
   //   `repoRoot + '/'` would be a double slash that nothing starts with.
-  const repoRoot = fileURLToPath(new URL('..', import.meta.url)).replace(/\/+$/, '')
   const offenders = []
   for (const name of readdirSync(join(repoRoot, 'tools')).filter((n) => n.endsWith('.mjs'))) {
     const text = readFileSync(join(repoRoot, 'tools', name), 'utf8')
@@ -443,7 +447,6 @@ negativeControl(
 // falls out of `files`, the agent loses the one thing this plugin can teach
 // it to do.
 {
-  const repoRoot = fileURLToPath(new URL('..', import.meta.url)).replace(/\/+$/, '')
   const skillPath = 'skills/dsh-appearance-media-install/SKILL.md'
   const skill = join(repoRoot, skillPath)
   const exists = existsSync(skill)
@@ -464,6 +467,34 @@ negativeControl(
     front.name !== null && front.description !== null,
     'name=' + (front.name ? front.name[1].trim() : 'missing')
     + ' description=' + (front.description ? 'present' : 'missing')))
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   The catalog entry the official list will accept.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+// The official catalog's rules, read from its contributing.md:
+//   - the entry is ONE file, data/plugins/<owner>__<repo>.yml;
+//   - `icon:` must be a GitHub-hosted RASTER image (png/jpg/jpeg/webp) —
+//     "SVG 与第三方图床会被拒绝";
+//   - the repository must declare dsh.bundle, be at least a day old, and
+//     carry the dsh-plugin topic.
+// A submission that breaks one of these is turned down by their CI, so the
+// rules are checked here first.
+{
+  const entryPath = join(repoRoot, '.catalog', 'harveyzhang__dsh-appearance-media.yml')
+  const entry = existsSync(entryPath) ? readFileSync(entryPath, 'utf8') : ''
+  const icon = /^icon:\s*(\S+)$/m.exec(entry)
+  const iconUrl = icon ? icon[1] : ''
+  print(verdict('the catalog entry declares a raster storefront tile',
+    /\.(png|jpe?g|webp)$/i.test(iconUrl),
+    iconUrl === '' ? 'no icon declared' : iconUrl))
+  print(verdict('the catalog entry points at this repository',
+    entry.indexOf('https://github.com/harveyzhang/dsh-appearance-media') >= 0,
+    'url: ' + (/^url:\s*(\S+)$/m.exec(entry) || [null, 'missing'])[1]))
+  const tile = join(repoRoot, 'assets', 'icon-180.png')
+  print(verdict('the storefront tile is in the repository',
+    existsSync(tile), existsSync(tile) ? 'assets/icon-180.png' : 'not found: assets/icon-180.png'))
 }
 
 console.log('')
