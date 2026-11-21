@@ -94,6 +94,29 @@
 
 ---
 
+## 路由的访问检查
+
+本插件在宿主上注册了 8 条 HTTP 路由（读清单、读配置、传素材、改槽位、删素材…）。
+**★ 每一条都先过宿主的访问检查**（`connection.requestRejection`）才轮到自己���逻辑 ——
+宿主的这道检查包含 **Host/Origin 校验** 与 **浏览器认证**。
+
+**为什么必须有它**：宿主上的路由对**任何能发 HTTP 请求的东西**都应答。
+没有这道检查的话，用户浏览器里**随便一个别的页面**（另一个标签页、随手点开的一个网页）
+就能调这些路由 —— 传素材、改配置、甚至删素材。
+
+**实际表现**：
+
+| 请求 | 结果 |
+| --- | --- |
+| 来自 DSH 自己的界面 | ✅ 正常 |
+| 来自别的网站（伪造 Origin） | **403 forbidden** |
+| 没有凭据（脚本、curl） | **401 unauthorized** |
+
+**★ 这道检查是宿主提供的，我们只是照着它的用法接上**（与宿主自己的路由同一种写法），
+并且加了断言盯着：每条注册的路由都必须拒绝被拒的请求，而且**被拒时绝不能碰到自己的逻辑**。
+
+---
+
 ## 安装
 
 三条路，按「普通人能走通的程度」排：**A 最快，B 一键，C 是给前两条都走不通的人留的后备办法。**
@@ -139,12 +162,13 @@ agent 会照 skill 里的步骤装。
 
 ### 路径 B：插件市场（一键装）
 
-> ★ **现在市场里还没有它。**
-> 本插件**还没有被收录进官方精选列表**，所以在市场里搜 `dsh-appearance-media` **搜不到**，
-> 点不了安装。收录的 PR 合并、索引重建之后，它才会出现在市场里。
-> 在那之前，请走路径 A 或路径 C。
+> ★ **它已经被收录进官方精选列表了。**
+> 收录 PR [`awesome-dsh-plugin#17485`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/17485)
+> 已于 2026-11-22 合并，索引重建完成后就能在市场里搜到 `dsh-appearance-media`。
+> **★ 索引重建要一点时间（合并之后由官方仓库的 CI 自动跑）** ——
+> 若一时没出来，过一会儿再试，或先走路径 A。
 
-等它收录之后，装法是四步，全程鼠标：
+装法是四步，全程鼠标：
 
 1. 打开 DSH 的 **插件** 页面。
 2. 切到 **插件市场** 标签页（老版本 DSH 在 **设置 → 插件市场**）。
@@ -188,7 +212,7 @@ https://awesome-dsh-plugin.com/plugins.json
 **★ 投稿已经提了**：[`awesome-dsh-plugin/awesome-dsh-plugin#17485`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/17485)，
 自动门禁（`dsh.bundle` / 仓库年龄 / topic）**全绿**，现在等维护者人工评审与合并。
 合并之后索引会由 CI 自动重建（`build-site.yml`），重建完成就能在市场里搜到本插件。
-**★ 在那之前，市场里还是搜不到它** —— 下面路径 B 里那句话说的就是这个。
+**★ 合并之后索引由官方仓库的 CI 自动重建**，所以从「合并」到「能搜到」之间有一小段延迟。
 
 #### 点安装时走哪条下载通道？
 
@@ -199,11 +223,11 @@ https://awesome-dsh-plugin.com/plugins.json
 - **没发 npm**：从 GitHub 整仓拉源码自己构建，慢一点，还会多卡一次构建授权。
 
 ★ **本插件目前还没发到 npm**（npm registry 上查不到 `dsh-appearance-media`），
-所以在它被收录进市场之前，命令行装法要写 `github:` 源（见路径 C）。
+所以命令行装法要写 `github:` 源（见路径 C）；将来发到 npm 之后才能简写成包名。
 
 ### 路径 C：手动落地（后备）
 
-前两条都走不通时——不能用（也不想）在 DSH 里让 agent 装，市场里也还没收录——
+前两条都走不通时——不能用（也不想）在 DSH 里让 agent 装，市场里还没出现（索引重建有延迟）——
 用下面的命令。**这一节是后备办法，不是首选。**
 
 **命令行一行（只对非桌面 profile 有效）**
@@ -310,7 +334,7 @@ $ dsh plugin --profile desktop add dsh-appearance-media
 error: profile "desktop" is managed exclusively by the Electron application
 ```
 
-所以桌面版只能走**路径 A**（让 agent 装）、**路径 B**（市场，等收录之后），
+所以桌面版只能走**路径 A**（让 agent 装）、**路径 B**（市场），
 或者**上面那套手动三步**。
 **其它 profile（`web`、`tui`、`sdk` 这些）没有这个限制**，那一行命令可以直接用。
 
@@ -433,9 +457,10 @@ node build-client.mjs
 
 ### 跑断言
 
-仓库里有 **15 套**离线断言，每套一个命令。**全绿才算完成。**
+仓库里有 **16 套**离线断言，每套一个命令。**全绿才算完成。**
 
 ```bash
+node tools/verify-access.mjs
 node tools/verify-background.mjs
 node tools/verify-boot-screen.mjs
 node tools/verify-catalog.mjs

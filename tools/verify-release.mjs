@@ -91,6 +91,7 @@ const GATE_FILENAME = 'verify-release.mjs'
  * the files in `tools/`, so a new suite cannot slip in un-gated.
  */
 const SUITE_NAMES = [
+  'access',
   'background',
   'boot-screen',
   'catalog',

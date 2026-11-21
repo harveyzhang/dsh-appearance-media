@@ -744,7 +744,7 @@ async function checkState(ctx) {
     if (!answer.ok) {
       skip('the npm registry did not answer for ' + pkg, answer.reason)
     } else {
-      const isPresent = answer.status === 200
+      const isPresent = answer.status === 200 || answer.status === 206
       const ok = (expected === 'present') === isPresent
       verdicts.push(verdict(
         'the npm registry agrees with what the documents say about "' + pkg + '"',
@@ -782,7 +782,13 @@ async function checkState(ctx) {
       const answer = probe(url, { offline: ctx.offline })
       if (!answer.ok) { reason = answer.reason; continue }
       answered = true
-      if (answer.status === 200) { found = true; break }
+      // ★ 200 AND 206 both mean "the file is there". The probe asks for a
+      //   byte range, and raw.githubusercontent answers a ranged request with
+      //   206 Partial Content. A checker that only accepts 200 reports a
+      //   LISTED plugin as absent — and reports it as "404", which is worse
+      //   than being silent: it sends you looking for a file that is right
+      //   there.
+      if (answer.status === 200 || answer.status === 206) { found = true; break }
       if (answer.status !== 404) reason = 'HTTP ' + answer.status
     }
     if (!answered) {

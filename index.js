@@ -84,8 +84,25 @@ import { ledgerRevision, updateLedger } from './lib/store.js'
 /** Package name the loader mounts this row as. */
 export const name = 'dsh-appearance-media'
 
-/** Services this half consumes. `webServer` is required: without it there is no route to register. */
-export const inject = ['webServer']
+/**
+ * Services this half consumes.
+ *
+ * `webServer` is required: without it there is no route to register.
+ *
+ * ★ `connection` is required too, and not for plumbing: it carries the Host's
+ *   access check (`requestRejection`). Without it, every route of this plugin
+ *   would answer a request from ANY web page the user happens to have open —
+ *   a page in another tab could upload material, rewrite the slot
+ *   configuration, or delete material. The Host's check is the Host/Origin
+ *   check plus browser authentication, which answers exactly the question
+ *   "is this request really from this application?".
+ *
+ *   It is a REQUIRED service rather than an optional one on purpose: a plugin
+ *   that cannot tell a legitimate request from a forged one has no business
+ *   exposing a route that writes files. A Host without the service refuses to
+ *   load this plugin, loudly — which is much better than loading it wide open.
+ */
+export const inject = ['webServer', 'connection']
 
 /** The version this build reports, in step with package.json. */
 export const VERSION = PLUGIN_VERSION
@@ -776,6 +793,43 @@ function buildOptimizeRoute({ readDataDir } = {}) {
 }
 
 /**
+ * Wrap a route handler with the Host's access check.
+ *
+ * ★ WHY THIS EXISTS
+ *
+ * A route on the Host's web server is reachable by anything that can make an
+ * HTTP request to it. The Host's own pages are served from the same server,
+ * so a page in the user's OTHER browser tab — or a page the user merely
+ * visited — could call these routes: upload material, rewrite the slot
+ * configuration, delete material.
+ *
+ * The Host owns the answer to "is this request really from this application?".
+ * Its `connection.requestRejection(request)` applies the Host/Origin check and
+ * browser authentication, and answers either:
+ *
+ *   - `undefined` — the request may proceed, or
+ *   - a status code (401 / 403) — it must not.
+ *
+ * This wrapper asks that question before ANY of the plugin's own logic runs,
+ * so a rejected request never reaches a handler that writes a file.
+ *
+ * @param {Function} handler - the route's own handler.
+ * @param {object} connection - the Host's connection service.
+ * @returns {Function} the guarded handler.
+ */
+export function guardHandler(handler, connection) {
+  return function guarded(req, res) {
+    const rejection = connection?.requestRejection?.(req)
+    if (rejection !== undefined) {
+      res.writeHead(rejection)
+      res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
+      return
+    }
+    handler(req, res)
+  }
+}
+
+/**
  * Mount the routes and the index injection.
  *
  * Every registration goes through `ctx.effect`, so the fiber owns it and
@@ -785,8 +839,7 @@ function buildOptimizeRoute({ readDataDir } = {}) {
  * @param ctx - the Host plugin context.
  * @param config - the applied config; volatile fields arrive as live references.
  * @returns the cleanup function.
- */
-export function apply(ctx, config) {
+ */export function apply(ctx, config) {
   const server = ctx.webServer
   const dataDirectory = resolveDataDir(config)
   // The ledger's revision, AT STARTUP. It is a snapshot for the log line
@@ -871,7 +924,11 @@ export function apply(ctx, config) {
     ]
 
     for (const route of routes) {
-      disposers.push(ctx.effect(() => server.register(route), `appearance-media: ${route.path}`))
+      // ★ EVERY route goes through the Host's access check. The guard is
+      //   applied HERE, at the one place where a route is registered, so a
+      //   route added later cannot forget it.
+      const guarded = { ...route, handler: guardHandler(route.handler, ctx.connection) }
+      disposers.push(ctx.effect(() => server.register(guarded), `appearance-media: ${route.path}`))
     }
 
     disposers.push(ctx.effect(
