@@ -1,9 +1,8 @@
 {
   "name": "dsh-appearance-media",
   "version": "0.1.0",
-  "description": "DSH 外观媒体插件：为背景、片头与屏保提供统一的素材入口。",
+  "description": "Background, intro clip and screensaver for DeepSeek Harness, sharing one media library. · DSH 外观媒体插件：背景、片头与屏保三合一，共用一份素材库。",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "exports": {
     ".": "./index.js",
@@ -20,12 +19,32 @@
     "cordis.patch.yml",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
+    "README.md",
     "icon.svg",
     "locale",
     "docs",
     "lib",
     "src",
     "build-client.mjs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harveyzhang/dsh-appearance-media.git"
+  },
+  "homepage": "https://github.com/harveyzhang/dsh-appearance-media",
+  "bugs": {
+    "url": "https://github.com/harveyzhang/dsh-appearance-media/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "appearance",
+    "wallpaper",
+    "boot",
+    "screensaver",
+    "media"
   ],
   "dsh": {
     "bundle": {
@@ -38,11 +57,11 @@
   "peerDependencies": {
     "@deepseek-ai/schemastery": "*"
   },
-  "dependencies": {
-    "@deepseek-ai/schemastery": "3.19.0"
-  },
   "engines": {
     "node": ">=22.12.0",
     "dsh": "^0.2.0-rc.1"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
   }
 }

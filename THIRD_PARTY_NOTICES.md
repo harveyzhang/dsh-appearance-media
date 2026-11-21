@@ -21,7 +21,7 @@ below.
 | Project | Author | License | Relationship |
 |---|---|---|---|
 | [dsh-video-skin](https://github.com/Something11235/dsh-video-skin) | Something11235 | MIT | Read as a reference for the browser half: the lazy `window.__ModuleLoader__` CJS factory, the `settings.section` / `plugins.item` slot registrations, and the theme-token styling vocabulary. |
-| [dsh-plugin-wallpaper-engine](https://github.com/elysia395/dsh-plugin-wallpaper-engine) | elysia395 | MIT | Read as a reference for the media-slot vocabulary (background / boot / screensaver) this package's configuration schema is named after. |
+| [dsh-plugin-wallpaper-engine](https://github.com/elysia395/dsh-wallpaper-engine) | elysia395 | MIT | Read as a reference for the media-slot vocabulary (background / boot / screensaver) this package's configuration schema is named after. |
 
 ## Material
 

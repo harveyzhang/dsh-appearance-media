@@ -87,7 +87,7 @@ DSH 插件 `dsh-appearance-media`，当前版本 **0.1.0**。
 > 依据是**换素材会打断请求**这件事，不是"别家也这么做"：背景是一个 `<video>`
 > 元素，**替换这个元素会中断正在进行的请求**；中断留下的就是**半截 body**。只要
 > 响应允许被缓存，半截 body 就会进缓存；下一次解码拿不到 `moov`（`moov` 在尾部的
-> 片子尤其如此）⇒ **画面空白，硬刷新才恢复**。P05 的原话（`AGENTS.md:249`）：
+> 片子尤其如此）⇒ **画面空白，硬刷新才恢复**。原项目 AGENTS.md 里的原话：
 > "anything cacheable stores a truncated body… ETag / no-cache does not fix this"。
 >
 
@@ -132,7 +132,7 @@ DSH 插件 `dsh-appearance-media`，当前版本 **0.1.0**。
 > 上游用 **PowerShell + `user32.dll` 的 `GetLastInputInfo`**，在 macOS 上恒为
 > `unavailable`（协调者实测过）⇒ 它那套三态是**永远走不到 `ok`** 的一态。
 > 我们换成 Darwin 的 `ioreg`，三态才真的分得开。
-> P06 的整片 200 用 `no-cache` + `ETag`，是因为它的背景是**单个固定文件、不会中途
+> 另一个插件（dsh-video-skin）的整片 200 用 `no-cache` + `ETag`，是因为它的背景是**单个固定文件、不会中途
 > 换素材**；我们的媒体会被替换，所以不照抄那一套。`ETag` 我们照用（它只做完整性
 > 判断），但**不下发缓存许可**。
 
@@ -954,13 +954,13 @@ body 一出现就把层挂上去（实测：注入脚本执行时 body 还没有
 
 **本包绝不写 `body[data-we-wallpaper]`。**
 
-- 那个属性是 **WE 与 P06 各自在用的标记**：P06 单向设置它（`runtime/skin.js:112`），
+- 那个属性是 **Wallpaper Engine 与 dsh-video-skin 各自在用的标记**：dsh-video-skin 单向设置它（`runtime/skin.js:112`），
   ★ **WE 的 JavaScript 也在读它**（`WE lib/client.js:22856`
   `document.body.hasAttribute("data-we-wallpaper")`，注释写着"「我方在台上」有两条
   腿"）⇒ **写它会干扰 WE 的清理逻辑**。
-- ⇒ 本包**只读**它：★ **聊天背景表面**读到非空 ⇒ 说明 WE / P06 在场 ⇒
+- ⇒ 本包**只读**它：★ **聊天背景表面**读到非空 ⇒ 说明 Wallpaper Engine / dsh-video-skin 在场 ⇒
   **我们让路**（撤层并停播）；**绝不写**。
-- **代价（已知限制，不在实现里偷偷补回来）**：P06 的皮肤**不会**因为我们上线而
+- **代价（已知限制，不在实现里偷偷补回来）**：dsh-video-skin 的皮肤**不会**因为我们上线而
   自动让路 ⇒ 两边可能同时在台。"同一时刻只有一个表面在播"这条**只对本包自己的
   三个槽位成立**，跨插件不成立。
 
@@ -1120,7 +1120,7 @@ and the slot configuration share ONE write queue, keyed by the data directory.
 
 Known limitation: the write queue is in-process only — the Host has no
 cross-process file lock — so two Host processes on the same profile could lose one
-update. This plugin never writes `body[data-we-wallpaper]` (WE's and P06's marker,
+update. This plugin never writes `body[data-we-wallpaper]` (Wallpaper Engine's and dsh-video-skin's marker,
 and WE's own JavaScript reads it), so the other plugins do not step aside for us —
 only for each other. Another known limitation: an injected row runs in `<head>`, where
 `document.body` does not exist yet, so the built-in mount point is unavailable there
