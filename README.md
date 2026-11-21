@@ -179,11 +179,16 @@ https://awesome-dsh-plugin.com/plugins.json
 | 门槛 | 本插件现在的情况 |
 | --- | --- |
 | `package.json` 声明 `dsh.bundle`（只声明 `dsh.client` 不算） | ✅ 已声明（`dsh.bundle.patch` 指向 `cordis.patch.yml`） |
-| 仓库建满 1 天 | ⏳ 本仓库建于 2026-11-20（UTC+8），这一关要到 **2026-11-21 23:50（UTC+8）** 之后才过 |
+| 仓库建满 1 天 | ✅ 已过（本仓库建于 2026-11-20 UTC+8，满 1 天是 2026-11-21 23:50 UTC+8） |
 | 仓库打 `dsh-plugin` topic | ✅ 已打 |
 | 描述属实、分类合适（维护者人工看） | 待评审 |
 
 投稿文件本仓库已经备好了：`.catalog/harveyzhang__dsh-appearance-media.yml`。
+
+**★ 投稿已经提了**：[`awesome-dsh-plugin/awesome-dsh-plugin#17485`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/17485)，
+自动门禁（`dsh.bundle` / 仓库年龄 / topic）**全绿**，现在等维护者人工评审与合并。
+合并之后索引会由 CI 自动重建（`build-site.yml`），重建完成就能在市场里搜到本插件。
+**★ 在那之前，市场里还是搜不到它** —— 下面路径 B 里那句话说的就是这个。
 
 #### 点安装时走哪条下载通道？
 
