@@ -70,3 +70,24 @@ node tools/verify-release.mjs --full   # 加上陌生人验收（克隆到临时
   `data/plugins/harveyzhang__dsh-appearance-media.yml`）；**那不是实时搜 npm**。
 - `npm publish` 之前必须 `npm publish --dry-run --access public` 跑通，
   且 `node tools/verify-package.mjs` 全绿（它核对 tarball 里该有的都在、不该有的不在）。
+
+### ★★ 发到 npm 之后，本机这台开发机要注意一件事
+
+**这台机器的 desktop profile 里，`dsh-appearance-media` 这个依赖指向的是工作区的源码目录**
+（`file:/…/DSH插件开发/插件源码/dsh-appearance-media`）。
+**⇒ 一旦同名包发到 npm，市场/任何 `pnpm add dsh-appearance-media` 都会把它换掉**，
+下次重启跑的就是**发布版**，本地改动会"莫名其妙不生效"。
+
+**⇒ 认出来**：profile 的 `package.json` 里那条依赖从 `file:/…` 变成了版本号。
+**⇒ 改回本地源码**：
+
+```bash
+node -e '
+const fs=require("fs"), p=process.env.HOME+"/.dsh/profiles/desktop/package.json";
+const d=JSON.parse(fs.readFileSync(p,"utf8"));
+d.dependencies["dsh-appearance-media"]="file:/Users/<你>/…/dsh-appearance-media";
+fs.writeFileSync(p, JSON.stringify(d,null,2)+"\n");'
+```
+
+**⇒ 装回本地版还要把文件同步进 profile**（`file:` 依赖装的是链接还是拷贝取决于包管理器，
+**改完源码后确认 profile 里那份是不是最新的**），然后**重启宿主**。
