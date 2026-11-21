@@ -99,6 +99,7 @@ const SUITE_NAMES = [
   'handover',
   'media-delete',
   'package',
+  'platform',
   'remux',
   'renderers',
   'routes',

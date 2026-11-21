@@ -71,6 +71,29 @@
 
 ---
 
+## 平台支持
+
+| 功能 | 浏览器（web） | macOS 桌面端 | Windows 桌面端 |
+| --- | --- | --- | --- |
+| 聊天背景（动态壁纸） | ✅ | ✅ | ✅ |
+| 开机片头 | ✅ | ✅ | ✅ |
+| 素材库：上传 / 删除 / 批量导入 | ✅ | ✅ | ✅ |
+| 插件页里的设置卡片 | ✅ | ✅ | ✅ |
+| 设置页左栏里的入口 | ❌ web 版没有设置页 | ✅ | ✅ |
+| 屏保 · 窗口失焦时接管 | ✅ | ✅ | ✅ |
+| 屏保 · 整机闲置时接管 | ✅ | ✅ | ❌ |
+
+**★ 唯一的一处差别在屏保的「整机闲置」那一条：**
+整机闲置要问操作系统"这台机器多久没人碰了"。macOS 上我们读 `ioreg` 的 `HIDIdleTime`；
+**Windows 上没有对应实现**，那一半会如实回答"不可用"，于是**只剩失焦触发**。
+（上游 `dsh-boot-animation` 的闲置探针是 Windows-only 的，我们换成了 macOS 那一版；
+两边合起来才完整——这一点记在 [`docs/DETAIL.md`](docs/DETAIL.md) 的限制一节里。）
+
+**★ 其余部分与操作系统无关**：背景、片头、素材库、卡片、路由全都是浏览器技术与 Node，
+在 Windows 上开箱可用。唯一与平台有关的代码是那一条 `ioreg` 调用。
+
+---
+
 ## 安装
 
 三条路，按「普通人能走通的程度」排：**A 最快，B 一键，C 是给前两条都走不通的人留的后备办法。**
@@ -405,7 +428,7 @@ node build-client.mjs
 
 ### 跑断言
 
-仓库里有 **14 套**离线断言，每套一个命令。**全绿才算完成。**
+仓库里有 **15 套**离线断言，每套一个命令。**全绿才算完成。**
 
 ```bash
 node tools/verify-background.mjs
@@ -416,6 +439,7 @@ node tools/verify-docs.mjs
 node tools/verify-handover.mjs
 node tools/verify-media-delete.mjs
 node tools/verify-package.mjs
+node tools/verify-platform.mjs
 node tools/verify-release.mjs
 node tools/verify-remux.mjs
 node tools/verify-renderers.mjs
