@@ -42,6 +42,7 @@
 // Usage: node tools/verify-remux.mjs
 
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   chmodSync,
   copyFileSync,
@@ -75,20 +76,65 @@ const CATALOG_PATH = '/appearance-media/catalog.json'
  * for. `DSHAM_REMUX_TAIL` overrides the location for a checkout that lays it
  * out differently.
  */
+// ★ THE FIXTURES SHIP WITH THE REPOSITORY.
+//
+// The two files under tools/fixtures/ are the SAME one-second clip in two
+// layouts: `tail.mp4` has its movie box at the end (ftyp → free → mdat → moov)
+// and `fast.mp4` has it at the front (ftyp → moov → free → mdat). The checks
+// below compare the two layouts of ONE video, so the pair has to be one
+// video.
+//
+// They used to come from this machine only — the upstream project's own
+// material, and a faststart clip in the user's media library. That made the
+// whole 57-check block conditional: on any machine without them the suite
+// reported "1 check(s), 0 failed" — a green run that proved nothing at all.
+// A checkout of this repository now tests the implementation everywhere.
+//
+// The environment variables still win, for anyone who wants to run the checks
+// against real material.
 const TAIL_SOURCE = process.env.DSHAM_REMUX_TAIL !== undefined && process.env.DSHAM_REMUX_TAIL !== ''
   ? process.env.DSHAM_REMUX_TAIL
-  : '/Users/harvey/Space/20_Projects/个人/开发工具/DSH/DSH插件开发/附件/插件源码/dsh-boot-animation/assets/screensaver/屏保1.mp4'
+  : fileURLToPath(new URL('./fixtures/tail.mp4', import.meta.url))
+
+/** The same clip, faststart. Overridable for real material. */
+const FAST_SOURCE = process.env.DSHAM_REMUX_FAST !== undefined && process.env.DSHAM_REMUX_FAST !== ''
+  ? process.env.DSHAM_REMUX_FAST
+  : fileURLToPath(new URL('./fixtures/fast.mp4', import.meta.url))
 
 /** The user's own media library. Read-only for this suite. */
 const LIBRARY_DIR = join(homedir(), '.dsh', 'dsh-appearance-media', 'media')
 
 /** A real PNG, used to prove that a non-mp4 is refused. */
-const PNG_FIXTURE = fileURLToPath(new URL('../../../.sdd/appearance-media/fixtures/sample.png', import.meta.url))
+const PNG_FIXTURE = (() => {
+  const inRepo = fileURLToPath(new URL('./fixtures/sample.png', import.meta.url))
+  if (existsSync(inRepo)) return inRepo
+  return fileURLToPath(new URL('../../../.sdd/appearance-media/fixtures/sample.png', import.meta.url))
+})()
 
 /** @type {Array<[string, boolean, string]>} */
 const checks = []
 /** @type {string[]} */
 const notes = []
+/**
+ * Checks that could not run here, with the reason.
+ *
+ * ★ A check that cannot run in this environment is SKIPPED, not failed:
+ *   the two "real clip" checks need material that only exists on the machine
+ *   that has it. Failing them would make a fresh checkout of this repository
+ *   report red for a reason that has nothing to do with the implementation.
+ *   Skips are printed, never silently dropped.
+ * @type {Array<[string, string]>}
+ */
+const skips = []
+
+/**
+ * Record that a check could not run here.
+ * @param label - what could not be checked.
+ * @param reason - why it could not run.
+ */
+function skip(label, reason) {
+  skips.push([label, reason])
+}
 
 /**
  * Record one assertion.
@@ -445,6 +491,50 @@ function makeContext() {
  *
  * @returns the absolute path, or null.
  */
+/**
+ * Whether a fixture is still the file the checks were measured on.
+ *
+ * The manifest next to the fixtures pins the size and the hash. A fixture
+ * that was edited, truncated or replaced is caught here instead of quietly
+ * changing what the rest of the checks mean.
+ * @param which - `tail` or `fast`.
+ * @param bytes - the bytes of the fixture.
+ * @returns whether it matches the manifest.
+ */
+function fixtureMatches(which, bytes) {
+  const manifestPath = fileURLToPath(new URL('./fixtures/manifest.json', import.meta.url))
+  let manifest = null
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch {
+    return false
+  }
+  const expected = manifest[which]
+  if (!expected) return false
+  if (bytes.length !== expected.bytes) return false
+  return createHash('sha256').update(bytes).digest('hex') === expected.sha256
+}
+
+/**
+ * The upstream project's own un-optimized clip, when this machine has it.
+ *
+ * Optional evidence only: the suite's own fixtures are the ones the checks
+ * run against, so a machine without the upstream checkout still tests
+ * everything.
+ * @returns the path, or null when it is not here.
+ */
+function findUpstreamClip() {
+  const candidates = [
+    fileURLToPath(new URL(
+      '../../../附件/插件源码/dsh-boot-animation/assets/screensaver/屏保1.mp4', import.meta.url)),
+    '/Users/harvey/Space/20_Projects/个人/开发工具/DSH/DSH插件开发/附件/插件源码/dsh-boot-animation/assets/screensaver/屏保1.mp4',
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate
+  }
+  return null
+}
+
 function findFaststartClip() {
   let names = []
   try {
@@ -522,14 +612,20 @@ async function runChecks({ label, remux, mount, tail, fast }) {
     say('the real original really has its moov AFTER its mdat',
       tailMoov > 0 && tailMdat > 0 && tailMoov > tailMdat,
       tailOrder.join(' → '))
-    say('the real original is the size the feature was measured on',
-      tailBytes.length === 22627234,
+    // ★ The fixture is pinned by a manifest next to it: size AND hash. The old
+    //   check compared against the byte size of one machine's material, which
+    //   said nothing once the fixtures shipped with the repository.
+    say('the un-optimized fixture is the one the checks were measured on',
+      fixtureMatches('tail', tailBytes),
       String(tailBytes.length) + ' bytes')
 
     const fastBytes = readFileSync(fast)
     const fastOrder = boxOrder(fastBytes)
     const fastMoov = fastOrder.indexOf('moov')
     const fastMdat = fastOrder.indexOf('mdat')
+    say('the faststart fixture is the one the checks were measured on',
+      fixtureMatches('fast', fastBytes),
+      String(fastBytes.length) + ' bytes')
     say('the real faststart clip really has its moov BEFORE its mdat',
       fastMoov >= 0 && (fastMdat < 0 || fastMoov < fastMdat),
       fastOrder.join(' → '))
@@ -1051,22 +1147,40 @@ const negativeControls = []
 
 try {
   const tail = TAIL_SOURCE
-  const fast = findFaststartClip()
+  const fast = FAST_SOURCE
 
+  // ★ The fixtures are part of the repository. If they are gone, this run
+  //   would test nothing — so that is a FAILURE, loudly, not a quiet green.
   if (!existsSync(tail)) {
-    record('the real un-optimized original is there', false,
-      'not found: ' + tail + ' (set DSHAM_REMUX_TAIL)')
+    record('the shipped un-optimized fixture is there', false,
+      'not found: ' + tail + ' (the suite cannot test anything without it)')
   } else {
-    record('the real un-optimized original is there', true, tail)
+    record('the shipped un-optimized fixture is there', true, tail)
   }
-  if (fast === null) {
-    record('a real faststart clip is there', false,
+  if (!existsSync(fast)) {
+    record('the shipped faststart fixture is there', false,
+      'not found: ' + fast + ' (the suite cannot test anything without it)')
+  } else {
+    record('the shipped faststart fixture is there', true, fast)
+  }
+
+  // The real material is extra evidence when this machine happens to have it.
+  const realTail = findUpstreamClip()
+  if (realTail === null) {
+    skip('the real un-optimized original is there',
+      'not on this machine (set DSHAM_REMUX_TAIL to run this one)')
+  } else {
+    record('the real un-optimized original is there', true, realTail)
+  }
+  const realFast = findFaststartClip()
+  if (realFast === null) {
+    skip('a real faststart clip is there',
       'no faststart mp4 in ' + LIBRARY_DIR)
   } else {
-    record('a real faststart clip is there', true, fast)
+    record('a real faststart clip is there', true, realFast)
   }
 
-  if (existsSync(tail) && fast !== null) {
+  if (existsSync(tail) && existsSync(fast)) {
     /* ---- the real implementation -------------------------------------- */
 
     const realRemux = await import(pathToFileURL(join(pkgDir, 'lib', 'remux.js')).href)
@@ -1139,6 +1253,7 @@ for (const [label, ok, detail] of checks) {
   console.log((ok ? 'PASS  ' : 'FAIL  ') + label + (detail === '' ? '' : '  — ' + detail))
 }
 for (const note of notes) console.log('NOTE  ' + note)
+for (const [label, reason] of skips) console.log('SKIP  ' + label + '  — ' + reason)
 
 console.log('')
 for (const control of negativeControls) {
@@ -1154,7 +1269,8 @@ for (const control of negativeControls) {
 
 const failed = checks.filter(([, ok]) => !ok)
 console.log('')
-console.log(checks.length + ' check(s), ' + failed.length + ' failed')
+console.log(checks.length + ' check(s), ' + failed.length + ' failed'
+  + (skips.length > 0 ? ', ' + skips.length + ' skipped' : ''))
 if (failed.length > 0) {
   exitCode = 1
   for (const [label, , detail] of failed) console.log('failed: ' + label + (detail === '' ? '' : '  — ' + detail))

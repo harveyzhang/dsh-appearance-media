@@ -1,0 +1,15 @@
+{
+  "note": "The fixtures the remux checks are measured on. Same one-second clip, two layouts: movie box at the end vs at the front.",
+  "tail": {
+    "file": "tail.mp4",
+    "bytes": 1809,
+    "sha256": "5e8b9b2ba9ba496bfa0fba7edfb5138e619ac699a80c5d2905ec806900ea5265",
+    "layout": "ftyp → free → mdat → moov"
+  },
+  "fast": {
+    "file": "fast.mp4",
+    "bytes": 1809,
+    "sha256": "dfed5e1e4b0feddfa4ac20a8560690d5b316f863718449e85291434a57f4abc2",
+    "layout": "ftyp → moov → free → mdat"
+  }
+}
