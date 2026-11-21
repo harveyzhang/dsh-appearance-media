@@ -40,7 +40,7 @@
 //   node tools/verify-package.mjs --list     the file list only, no assertions
 
 import { execFileSync } from 'node:child_process'
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -431,6 +431,39 @@ negativeControl(
   print(verdict('no suite reaches outside the repository for its material',
     offenders.length === 0,
     offenders.length === 0 ? 'checked tools/*.mjs' : offenders.join(' | ')))
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   The plugin ships the skill that tells an agent how to install it.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+// A user who has an agent should not need a manual: the package carries a
+// skill, and the Host picks skills up from an installed plugin package by
+// convention (`skills/<name>/SKILL.md` — no manifest field). If the skill
+// falls out of `files`, the agent loses the one thing this plugin can teach
+// it to do.
+{
+  const repoRoot = fileURLToPath(new URL('..', import.meta.url)).replace(/\/+$/, '')
+  const skillPath = 'skills/dsh-appearance-media-install/SKILL.md'
+  const skill = join(repoRoot, skillPath)
+  const exists = existsSync(skill)
+  print(verdict('the package carries the install skill',
+    exists && readdirSync(join(repoRoot, 'skills')).length > 0,
+    exists ? skillPath : 'not found: ' + skillPath))
+
+  let front = { name: null, description: null }
+  if (exists) {
+    const text = readFileSync(skill, 'utf8')
+    const name = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)
+    if (name !== null) {
+      front.name = /^name:\s*(.+)$/m.exec(name[1])
+      front.description = /^description:\s*(.+)$/m.exec(name[1])
+    }
+  }
+  print(verdict('the install skill declares a name and a description',
+    front.name !== null && front.description !== null,
+    'name=' + (front.name ? front.name[1].trim() : 'missing')
+    + ' description=' + (front.description ? 'present' : 'missing')))
 }
 
 console.log('')

@@ -24,6 +24,7 @@
     "locale",
     "docs",
     "lib",
+    "skills",
     "src",
     "build-client.mjs"
   ],
