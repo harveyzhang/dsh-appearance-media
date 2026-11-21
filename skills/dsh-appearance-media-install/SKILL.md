@@ -87,13 +87,13 @@ else console.log("already there");'
 1. **界面上传**：卡片里点素材 → 上传（支持 mp4 / webm / ogv / jpg / jpeg / png / webp）。
 2. **批量导入一个目录**：
    ```bash
-   python3 <仓库>/DSH插件开发/方案与工具/import-media-sources.py dir <目录>          # 演练
-   python3 <仓库>/DSH插件开发/方案与工具/import-media-sources.py dir <目录> --apply  # 真导入
+   python3 scripts/import-media-sources.py dir <目录>          # 演练
+   python3 scripts/import-media-sources.py dir <目录> --apply  # 真导入
    ```
    只加不删；内容相同的不会重复导入；**faststart 优化过的同一段片子会被认成"优化版"而不是新素材**。
 3. **导入 Wallpaper Engine 的视频壁纸**：
    ```bash
-   python3 <仓库>/DSH插件开发/方案与工具/import-media-sources.py we <WE 安装目录>
+   python3 scripts/import-media-sources.py we <WE 安装目录>
    ```
    ★ **Wallpaper Engine 的壁纸分五种**：视频（能导）、3D 场景（**导不了**，实时渲染）、
    网页（**导不了**，要跑 JS）、图片、应用（**导不了**）。

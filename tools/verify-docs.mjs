@@ -1042,7 +1042,11 @@ function importToolPath(ctx) {
   for (const [key, text] of Object.entries(ctx.docs)) {
     if (text === '') continue
     for (const candidate of pathCandidates(text, key)) {
-      if (candidate.scope === 'workspace' && /import-media-sources\.py$/.test(candidate.path)) {
+      // ★ The tool ships inside the package now (scripts/), so the documents
+      //   name it relative to the repository — not relative to the workspace
+      //   around it. Both scopes are accepted, and the caller resolves the
+      //   right base for each.
+      if (/import-media-sources\.py$/.test(candidate.path)) {
         return candidate.path
       }
     }
@@ -1166,10 +1170,14 @@ function checkCommands(ctx) {
     verdicts.push(verdict('the documents point at the material import tool', false,
       'no import-media-sources.py among the paths the documents name', 'cmd:importer'))
   } else {
-    const full = join(ctx.workspaceRoot, importer)
+    // ★ The tool lives inside the package now, so it is resolved against the
+    //   repository root and run from there.
+    const importerCwd = importer.startsWith('scripts/') ? ctx.repoRoot : ctx.workspaceRoot
+    const importerArg = importer.startsWith('scripts/') ? importer : importer
+    const full = join(importerCwd, importerArg)
     for (const probeArgs of [['--help'], ['we', '--dry-run']]) {
-      const run = spawnSync('python3', [importer, ...probeArgs], {
-        cwd: ctx.workspaceRoot, encoding: 'utf8', timeout: 15000,
+      const run = spawnSync('python3', [importerArg, ...probeArgs], {
+        cwd: importerCwd, encoding: 'utf8', timeout: 15000,
       })
       const output = ((run.stdout || '') + (run.stderr || '')).trim()
       // The importer answers "nothing found" with exit code 2 on purpose — a

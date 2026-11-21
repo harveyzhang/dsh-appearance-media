@@ -146,7 +146,7 @@ https://awesome-dsh-plugin.com/plugins.json
 这份索引由官方精选列表仓库
 [`awesome-dsh-plugin/awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 **自动生成**：每个插件一个 `data/plugins/<owner>__<repo>.yml`，仓库里的
-`scripts/build-index.mjs`、`scripts/publish-catalog.mjs` 把它们编译成索引，
+仓库里的索引生成脚本（build-index / publish-catalog）把它们编译成索引，
 `.github/workflows/build-site.yml` 在合并之后自动跑。
 
 所以让本插件出现在市场里，要做的是**给那个仓库提一个 PR、加一个 yml 文件**
