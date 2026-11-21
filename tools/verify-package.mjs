@@ -494,7 +494,138 @@ negativeControl(
     'url: ' + (/^url:\s*(\S+)$/m.exec(entry) || [null, 'missing'])[1]))
   const tile = join(repoRoot, 'assets', 'icon-180.png')
   print(verdict('the storefront tile is in the repository',
-    existsSync(tile), existsSync(tile) ? 'assets/icon-180.png' : 'not found: assets/icon-180.png'))
+    existsSync(tile), existsSync(tile) ? 'icon-180.png' : 'not found: icon-180.png'))
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   The release gate exists and can run.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+// "Done" for this project is one command: `node tools/verify-release.mjs`.
+// If that file is missing, broken, or no longer knows what to run, the word
+// "done" means nothing — so the gate itself is asserted here.
+//
+// ★ WHY `--list` AND NOT A REAL RUN.
+//
+//   The gate runs THIS suite as a subprocess. A suite that ran the gate for
+//   real would re-enter this very suite, and the two would call each other
+//   until the machine ran out of patience. `--list` prints the plan and
+//   exits: it proves the file parses, that it starts, and that it still
+//   knows every suite — without running a single check twice.
+//
+// ★ The suite list is read from `tools/`, not hard-coded here, so a new
+//   suite that the gate does not know about turns this red.
+
+{
+  const gatePath = join(repoRoot, 'tools', 'verify-release.mjs')
+  const gateExists = existsSync(gatePath)
+  print(verdict('the release gate exists',
+    gateExists,
+    gateExists ? 'tools/verify-release.mjs' : 'not found: tools/verify-release.mjs'))
+
+  /**
+   * Run node and capture the result without throwing.
+   *
+   * @param {string[]} args - the arguments.
+   * @returns {{ status: number, stdout: string, stderr: string }} the result.
+   */
+  const runNode = (args) => {
+    try {
+      const stdout = execFileSync(process.execPath, args, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 60000,
+      })
+      return { status: 0, stdout, stderr: '' }
+    } catch (error) {
+      return {
+        status: typeof error.status === 'number' ? error.status : 1,
+        stdout: error.stdout === undefined ? '' : String(error.stdout),
+        stderr: error.stderr === undefined ? String(error.message) : String(error.stderr),
+      }
+    }
+  }
+
+  let parses = false
+  let parseDetail = ''
+  if (gateExists) {
+    const syntax = runNode(['--check', gatePath])
+    parses = syntax.status === 0
+    parseDetail = parses
+      ? 'node --check 通过'
+      : 'node --check 退出码 ' + String(syntax.status) + '：\n' + (syntax.stderr + syntax.stdout).trim()
+  }
+  print(verdict('the release gate parses as JavaScript',
+    parses,
+    gateExists ? parseDetail : '闸门文件不在，没法检查'))
+
+  let answers = false
+  let answerDetail = ''
+  let knownSuites = []
+  if (gateExists && parses) {
+    const listing = runNode([gatePath, '--list'])
+    answers = listing.status === 0
+    const suites = readdirSync(join(repoRoot, 'tools'))
+      .filter((name) => name.startsWith('verify-') && name.endsWith('.mjs') && name !== 'verify-release.mjs')
+      .sort()
+    knownSuites = suites.filter((name) => !listing.stdout.includes(name))
+    answers = answers && knownSuites.length === 0
+    answerDetail = answers
+      ? 'node tools/verify-release.mjs --list 正常退出，并且列出了 tools/ 里的每一套断言'
+      : listing.status !== 0
+        ? '--list 退出码 ' + String(listing.status) + '：\n' + (listing.stdout + listing.stderr).trim()
+        : '闸门不知道这几套断言：' + knownSuites.join(', ')
+  }
+  print(verdict('the release gate runs and knows every assertion suite',
+    answers,
+    gateExists ? answerDetail : '闸门文件不在，没法检查'))
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   The documentation checker.
+
+   The documents make claims about the world — "published to npm", "listed in
+   the marketplace", "this path exists". This repository has a checker that
+   turns those claims into assertions and asks the world. It has to exist AND
+   it has to REPORT something: a checker that runs and asserts nothing looks
+   green, and a green that says nothing is worse than no checker at all.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+if (process.env.DSH_SKIP_DOCS_CHECKER === '1') {
+  // The caller is the documentation checker itself: it runs this file, so
+  // running it again would be a loop. Skipped, not passed.
+  console.log('SKIP  the documentation checker was not run — the caller is the documentation checker (no loop)')
+} else {
+  const docsChecker = join(repoRoot, 'tools', 'verify-docs.mjs')
+  const docsCheckerExists = existsSync(docsChecker)
+  let docsStatus = 1
+  let docsAssertions = 0
+  let docsDetail = 'not found: tools/verify-docs.mjs'
+  if (docsCheckerExists) {
+    let stdout = ''
+    try {
+      stdout = execFileSync(process.execPath, [docsChecker], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 600000,
+      })
+      docsStatus = 0
+    } catch (error) {
+      stdout = error.stdout === undefined ? '' : String(error.stdout)
+      docsStatus = typeof error.status === 'number' ? error.status : 1
+    }
+    const summary = /(\d+)\s+check\(s\)/.exec(stdout)
+    docsAssertions = summary === null ? 0 : Number(summary[1])
+    // Exit 1 means the checker found a document that disagrees with the
+    // world. That is a FINDING, not a broken checker: what matters here is
+    // that it ran and that it asserted something.
+    docsDetail = 'exit ' + String(docsStatus) + ', ' + String(docsAssertions) + ' assertion(s) reported'
+  }
+  print(verdict('the documentation checker exists and reports its assertions',
+    docsCheckerExists && docsAssertions > 0,
+    docsDetail))
 }
 
 console.log('')

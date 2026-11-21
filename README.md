@@ -405,15 +405,17 @@ node build-client.mjs
 
 ### 跑断言
 
-仓库里有 **11 套**离线断言，每套一个命令。**全绿才算完成。**
+仓库里有 **14 套**离线断言，每套一个命令。**全绿才算完成。**
 
 ```bash
 node tools/verify-background.mjs
 node tools/verify-boot-screen.mjs
 node tools/verify-catalog.mjs
 node tools/verify-client-ui.mjs
+node tools/verify-docs.mjs
 node tools/verify-handover.mjs
 node tools/verify-media-delete.mjs
+node tools/verify-release.mjs
 node tools/verify-remux.mjs
 node tools/verify-renderers.mjs
 node tools/verify-routes.mjs
@@ -426,6 +428,18 @@ node tools/verify-slots.mjs
 ```bash
 node tools/verify-package.mjs
 ```
+
+**★ 日常就靠它收尾**（它会把上面各套当子进程跑一遍，再打包、装进临时目录、导入插件，
+并检查测试期间有没有人在并发改文件）：
+
+```bash
+node tools/verify-release.mjs          # 十几秒
+node tools/verify-release.mjs --full   # 再加"陌生人验收"：克隆到临时目录重跑一遍
+```
+
+★ `verify-docs.mjs` 专门核对**文档里的每一句事实**（路径在不在、命令能不能跑、
+**发布状态、收录状态这类"关于现在"的说法**与 registry / 官方目录对不对得上）；
+`verify-release.mjs` 专门核对**这个仓库能不能在别人机器上跑起来**。两条都各有反向对照。
 
 想一次跑完：
 

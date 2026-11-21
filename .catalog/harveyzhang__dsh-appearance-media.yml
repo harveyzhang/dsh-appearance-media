@@ -6,5 +6,7 @@ description:
   zh: 把窗口背景、开机片头和屏保收在一处管，共用一份素材库。
 # ★ The catalog's storefront tile must be a RASTER image hosted on GitHub:
 #   "SVG 与第三方图床会被拒绝"（官方 contributing.md）。The plugin's own
-#   icon is icon.svg; this PNG is the same drawing rendered at 180px.
-icon: https://raw.githubusercontent.com/harveyzhang/dsh-appearance-media/main/assets/icon-180.png
+#   icon is icon.svg; this PNG is the same drawing rendered at 180px. It
+#   sits at the repository root, not in assets/ — assets/ means "media we
+#   ship", and we ship none.
+icon: https://raw.githubusercontent.com/harveyzhang/dsh-appearance-media/main/icon-180.png
