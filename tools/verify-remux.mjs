@@ -275,6 +275,22 @@ function mdatPayloadOffset(buffer) {
  * @param file - the absolute path.
  * @returns `{ ok, facts, error }`.
  */
+/**
+ * Whether ffprobe can be run here.
+ *
+ * ffprobe is an environment dependency: it is not in the repository and not in
+ * the package. The checks that need it skip when it is missing.
+ * @returns whether ffprobe answers.
+ */
+function ffprobeAvailable() {
+  try {
+    execFileSync('ffprobe', ['-version'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
 function probeFacts(file) {
   try {
     const raw = execFileSync('ffprobe', [
@@ -708,18 +724,29 @@ async function runChecks({ label, remux, mount, tail, fast }) {
         entriesChecked + ' entries checked, ' + String(entriesWrong) + ' wrong, shift '
           + String(shift))
 
+      // ★ ffprobe is an environment dependency, not a repository file. On a
+      //   machine without it these three checks cannot run — that is a skip,
+      //   not a failure: the suite has to be runnable anywhere, or "run the
+      //   tests" stops being something anybody does.
       const beforeProbe = probeFacts(tail)
       const afterProbe = probeFacts(rewriteFile)
-      say('ffprobe reads the rewritten clip', beforeProbe.ok && afterProbe.ok,
-        afterProbe.ok ? 'ok' : afterProbe.error)
-      if (beforeProbe.ok && afterProbe.ok) {
-        const a = mediaFacts(beforeProbe.facts)
-        const b = mediaFacts(afterProbe.facts)
-        say('ffprobe reports the same duration', a.duration === b.duration && a.duration !== '',
-          a.duration + ' → ' + b.duration)
-        say('ffprobe reports the same streams',
-          JSON.stringify(a.streams) === JSON.stringify(b.streams),
-          JSON.stringify(b.streams))
+      if (!ffprobeAvailable()) {
+        skip('ffprobe reads the rewritten clip',
+          'ffprobe is not installed here (' + (afterProbe.error || 'not found') + ')')
+        skip('ffprobe reports the same duration', 'ffprobe is not installed here')
+        skip('ffprobe reports the same streams', 'ffprobe is not installed here')
+      } else {
+        say('ffprobe reads the rewritten clip', beforeProbe.ok && afterProbe.ok,
+          afterProbe.ok ? 'ok' : afterProbe.error)
+        if (beforeProbe.ok && afterProbe.ok) {
+          const a = mediaFacts(beforeProbe.facts)
+          const b = mediaFacts(afterProbe.facts)
+          say('ffprobe reports the same duration', a.duration === b.duration && a.duration !== '',
+            a.duration + ' → ' + b.duration)
+          say('ffprobe reports the same streams',
+            JSON.stringify(a.streams) === JSON.stringify(b.streams),
+            JSON.stringify(b.streams))
+        }
       }
     }
 
