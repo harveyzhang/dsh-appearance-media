@@ -415,6 +415,7 @@ node tools/verify-client-ui.mjs
 node tools/verify-docs.mjs
 node tools/verify-handover.mjs
 node tools/verify-media-delete.mjs
+node tools/verify-package.mjs
 node tools/verify-release.mjs
 node tools/verify-remux.mjs
 node tools/verify-renderers.mjs
@@ -423,23 +424,18 @@ node tools/verify-screensaver.mjs
 node tools/verify-slots.mjs
 ```
 
-还有一套专门盯**发布包**的（打包前跑它）：
+其中两套是"总闸门"，日常就用它们收尾：
 
 ```bash
-node tools/verify-package.mjs
-```
-
-**★ 日常就靠它收尾**（它会把上面各套当子进程跑一遍，再打包、装进临时目录、导入插件，
-并检查测试期间有没有人在并发改文件）：
-
-```bash
-node tools/verify-release.mjs          # 十几秒
+node tools/verify-release.mjs          # 十几秒：把上面各套当子进程跑一遍，再打包、装进临时目录、导入插件，
+                                       #          并检查测试期间有没有人在并发改文件
 node tools/verify-release.mjs --full   # 再加"陌生人验收"：克隆到临时目录重跑一遍
 ```
 
 ★ `verify-docs.mjs` 专门核对**文档里的每一句事实**（路径在不在、命令能不能跑、
 **发布状态、收录状态这类"关于现在"的说法**与 registry / 官方目录对不对得上）；
-`verify-release.mjs` 专门核对**这个仓库能不能在别人机器上跑起来**。两条都各有反向对照。
+`verify-package.mjs` 专门核对**发布包**（该有的文件在不在、不该有的在不在）。
+两条都各有反向对照。
 
 想一次跑完：
 

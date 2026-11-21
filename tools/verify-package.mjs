@@ -492,7 +492,7 @@ negativeControl(
   print(verdict('the catalog entry points at this repository',
     entry.indexOf('https://github.com/harveyzhang/dsh-appearance-media') >= 0,
     'url: ' + (/^url:\s*(\S+)$/m.exec(entry) || [null, 'missing'])[1]))
-  const tile = join(repoRoot, 'assets', 'icon-180.png')
+  const tile = join(repoRoot, 'icon-180.png')
   print(verdict('the storefront tile is in the repository',
     existsSync(tile), existsSync(tile) ? 'icon-180.png' : 'not found: icon-180.png'))
 }

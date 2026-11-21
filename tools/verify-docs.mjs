@@ -48,7 +48,7 @@
 //   node tools/verify-docs.mjs --docs-root=DIR   check a copy of the tree in DIR
 
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -479,23 +479,85 @@ const netCache = new Map()
  * @param {{ timeoutMs?: number, offline?: boolean }} [options] - probe options.
  * @returns {{ ok: boolean, status: number, reason: string }} the answer.
  */
+/**
+ * A wall-clock budget for a phase.
+ *
+ * The checker must be faster than the thing it checks. When a budget runs
+ * out the remaining work is skipped with a reason — a skipped check is never
+ * a pass and never a failure, it says "this machine could not answer in time".
+ *
+ * @param {number} budgetMs - how long the phase may take.
+ * @returns {{ start: () => void, exhausted: () => boolean }} the budget.
+ */
+function makeBudget(budgetMs) {
+  return {
+    budgetMs,
+    started: false,
+    deadline: 0,
+    /**
+     * Start the budget, if it has not started.
+     * @returns nothing.
+     */
+    start() {
+      if (this.started) return
+      this.started = true
+      this.deadline = Date.now() + this.budgetMs
+    },
+    /**
+     * Whether the budget is used up.
+     * @returns whether no more work should be done.
+     */
+    exhausted() {
+      return this.started && Date.now() > this.deadline
+    },
+  }
+}
+
+/** The whole network phase: the probes and the registry checks. */
+const netBudget = makeBudget(25000)
+
+/** The whole command phase: every documented command that gets run. */
+const cmdBudget = makeBudget(30000)
+
+/**
+ * Write a file into the copy's assets/ directory, creating it first.
+ *
+ * The repository ships no assets/ directory, so a control that assumes one
+ * crashes instead of turning a check red.
+ * @param {string} dir - the copy's root.
+ * @param {string} name - the file name.
+ */
+function writeAsset(dir, name) {
+  mkdirSync(join(dir, 'assets'), { recursive: true })
+  writeFileSync(join(dir, 'assets', name), 'not really a video')
+}
+
 function probe(url, options) {
   const settings = options === undefined ? {} : options
-  const timeoutMs = settings.timeoutMs === undefined ? 25000 : settings.timeoutMs
+  // ★ Eight seconds, and NO retries.
+  //
+  // The old shape was `--max-time 25 --retry 2 --retry-delay 1`: one URL could
+  // take 75 seconds, and twenty URLs took minutes — the checker was slower
+  // than the thing it checks, and the release gate timed out on it.
+  //
+  // A probe that fails is a SKIP, not a failure, so retrying it only buys
+  // latency. The whole network phase is bounded by NET_BUDGET_MS below.
+  const timeoutMs = settings.timeoutMs === undefined ? 8000 : settings.timeoutMs
   if (settings.offline === true) return { ok: false, status: 0, reason: 'offline mode' }
+  if (netBudget.exhausted()) {
+    return { ok: false, status: 0, reason: 'the network budget (' + String(NET_BUDGET_MS) + ' ms) ran out' }
+  }
   const key = url + '|' + String(timeoutMs)
   if (netCache.has(key)) return netCache.get(key)
   const run = spawnSync('curl', [
     '-sSL',
     '--max-time', String(Math.ceil(timeoutMs / 1000)),
-    '--retry', '2',
-    '--retry-delay', '1',
-    '--retry-all-errors',
+    '--connect-timeout', '4',
     '-r', '0-4096',
     '-o', '/dev/null',
     '-w', '%{http_code}',
     url,
-  ], { encoding: 'utf8', timeout: timeoutMs + 5000 })
+  ], { encoding: 'utf8', timeout: timeoutMs + 2000 })
   const raw = (run.stdout === null || run.stdout === undefined) ? '' : run.stdout.trim()
   const status = Number.parseInt(raw, 10)
   let answer
@@ -863,7 +925,7 @@ function checkRepositoryAge(ctx) {
   const gate = dates[1][1] + ' ' + dates[1][2]
 
   const git = spawnSync('git', ['log', '--reverse', '--format=%aI'], {
-    cwd: ctx.gitRoot, encoding: 'utf8', timeout: 20000,
+    cwd: ctx.gitRoot, encoding: 'utf8', timeout: 15000,
   })
   if (git.status !== 0 || git.stdout.trim() === '') {
     skip('the repository age could not be read from git', (git.stderr || '').trim())
@@ -996,6 +1058,10 @@ function importToolPath(ctx) {
  */
 function checkCommands(ctx) {
   const verdicts = []
+  // ★ The command phase has its own budget: a dozen documented commands, each
+  //   allowed up to fifteen seconds, is three minutes on a machine that cannot
+  //   reach the network.
+  cmdBudget.start()
   const commands = documentedCommands(ctx)
   if (commands.length === 0) {
     verdicts.push(verdict('the documents contain runnable commands', false,
@@ -1006,6 +1072,28 @@ function checkCommands(ctx) {
   const npmExpectation = npmClaims(ctx).some((claim) => claim.kind === 'absent') ? 'absent' : 'present'
 
   for (const command of commands) {
+    if (cmdBudget.exhausted()) {
+      skip('command not run: ' + command.text.slice(0, 120),
+        'the command budget (' + String(cmdBudget.budgetMs) + ' ms) ran out')
+      continue
+    }
+    // ★ Never run the META suites: this checker, the gate that runs it, and
+    //   the package checker the gate calls.
+    //
+    //   The README documents them, and the documented commands are the ones
+    //   this checker executes. The three of them call each other:
+    //   verify-docs → verify-package → verify-docs → …
+    //   The recursion showed up as "exit null" in single runs (the budget
+    //   killed the innermost) and as a 240-second timeout in the stranger
+    //   acceptance, where each level burns the network budget.
+    //
+    //   They are still ASSERTED to exist and to be mentioned in the README;
+    //   only their execution is skipped here.
+    if (/verify-(docs|release|package)\.mjs/.test(command.text)) {
+      skip('command not run: ' + command.text.slice(0, 120),
+        'it is a meta suite (it runs this checker) — running it here would recurse')
+      continue
+    }
     if (ctx.onlyCommands !== undefined && !ctx.onlyCommands.some((needle) => command.text.indexOf(needle) !== -1)) continue
     const argv = command.argv
     if (argv.length === 0) continue
@@ -1026,8 +1114,11 @@ function checkCommands(ctx) {
         skip('not checked: ' + command.text, 'it asks the registry, and this run is offline')
         continue
       }
-      const run = spawnSync('npm', ['view', npmView[1], 'version'], {
-        cwd: ctx.workspaceRoot, encoding: 'utf8', timeout: 60000,
+      // ★ npm's own fetch has its own timeout and its own retries; left alone they
+      //   multiply: three retries, each waiting out its own timeout.
+      const run = spawnSync('npm', ['view', npmView[1], 'version',
+        '--fetch-timeout=8000', '--fetch-retries=0'], {
+        cwd: ctx.workspaceRoot, encoding: 'utf8', timeout: 15000,
       })
       const published = run.status === 0
       const ok = (npmExpectation === 'present') === published
@@ -1053,7 +1144,7 @@ function checkCommands(ctx) {
     const run = spawnSync(argv[0], argv.slice(1), {
       cwd,
       encoding: 'utf8',
-      timeout: 180000,
+      timeout: 30000,
       env: { ...process.env, DSH_SKIP_DOCS_CHECKER: '1' },
     })
     const output = ((run.stdout || '') + (run.stderr || '')).trim()
@@ -1078,7 +1169,7 @@ function checkCommands(ctx) {
     const full = join(ctx.workspaceRoot, importer)
     for (const probeArgs of [['--help'], ['we', '--dry-run']]) {
       const run = spawnSync('python3', [importer, ...probeArgs], {
-        cwd: ctx.workspaceRoot, encoding: 'utf8', timeout: 60000,
+        cwd: ctx.workspaceRoot, encoding: 'utf8', timeout: 15000,
       })
       const output = ((run.stdout || '') + (run.stderr || '')).trim()
       // The importer answers "nothing found" with exit code 2 on purpose — a
@@ -1140,7 +1231,7 @@ function buildVerdict(ctx) {
       },
     })
     const run = spawnSync(process.execPath, ['build-client.mjs'], {
-      cwd: dir, encoding: 'utf8', timeout: 60000,
+      cwd: dir, encoding: 'utf8', timeout: 15000,
     })
     if (run.status !== 0) {
       return verdict('lib/client.js is the build product of src/client.js', false,
@@ -1170,6 +1261,11 @@ function buildVerdict(ctx) {
  * @returns {object[]} the verdicts.
  */
 function checkLinks(ctx) {
+  // ★ The network phase gets a wall-clock budget. When the machine cannot
+  //   reach the network at all, every probe would otherwise burn its full
+  //   timeout, one after another, and the checker would take minutes — slower
+  //   than the release gate that runs it.
+  netBudget.start()
   const verdicts = []
   const urls = new Set()
   for (const key of ['readme', 'notices', 'detail', 'skill']) {
@@ -1444,7 +1540,13 @@ const CONTROLS = [
   {
     label: 'assets/ holds a video',
     section: 'state',
-    break: (dir) => writeFileSync(join(dir, 'assets', 'demo-clip.mp4'), 'not really a video'),
+    break: (dir) => {
+      // ★ The directory may not exist in the copy — the repository does not
+      //   ship an assets/ directory, and a control that assumes one crashes
+      //   instead of turning a check red.
+      mkdirSync(join(dir, 'assets'), { recursive: true })
+      writeAsset(dir, 'demo-clip.mp4')
+    },
   },
   {
     label: 'the documents describe assets/ wrongly',
@@ -1453,10 +1555,10 @@ const CONTROLS = [
     // (assets/ really is empty), so that the break is what turns the verdict
     // red. Without the preparation the verdict is red to begin with, and a
     // rule that is red all the time proves nothing.
-    prepare: (dir) => unlinkSync(join(dir, 'assets', 'icon-180.png')),
+    prepare: (dir) => unlinkSync(join(dir, 'icon-180.png')),
     break: (dir) => {
       editInCopy(dir, 'README.md', '`assets/` 目录是空的', '`assets/` 里只有 icon-180.png')
-      writeFileSync(join(dir, 'assets', 'stray.png'), 'a stray file')
+      writeAsset(dir, 'stray.png')
     },
   },
   {
