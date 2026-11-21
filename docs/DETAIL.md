@@ -1135,12 +1135,12 @@ only for each other. Another known limitation: an injected row runs in `<head>`,
 1. **在插件页面里上传** —— 卡片里的「素材库」下方，「导入一个视频或图片（≤ 96 MiB）」，单个文件传上去。
 2. **批量导入一个目录**：
    ```bash
-   python3 DSH插件开发/方案与工具/import-media-sources.py dir <目录>          # 演练
-   python3 DSH插件开发/方案与工具/import-media-sources.py dir <目录> --apply  # 真导入
+   python3 scripts/import-media-sources.py dir <目录>          # 演练
+   python3 scripts/import-media-sources.py dir <目录> --apply  # 真导入
    ```
 3. **导入 Wallpaper Engine 的视频壁纸**：
    ```bash
-   python3 DSH插件开发/方案与工具/import-media-sources.py we <WE 安装目录>
+   python3 scripts/import-media-sources.py we <WE 安装目录>
    ```
 
 > 命令里的路径相对 **DSH 插件开发工作区的根目录**。默认是演练（只报告、不写任何文件），
@@ -1148,7 +1148,7 @@ only for each other. Another known limitation: an injected row runs in `<head>`,
 
 每次导入都会写一条出处记录（`~/.dsh/dsh-appearance-media/sources.jsonl`）：来源、许可、地址、SHA-256。
 
-**要加一个新的在线素材源**：编辑 `DSH插件开发/方案与工具/media-sources.json` 这个来源清单——
+**要加一个新的在线素材源**：编辑 `scripts/media-sources.json` 这个来源清单——
 每条源写着名称、URL 模板、许可说明。**在线抓取默认是关的**（清单里 `enabled` 默认是 `false`，
 要抓得用 `--source <名字>` 点名才生效），清单里只留许可说得清的源。
 

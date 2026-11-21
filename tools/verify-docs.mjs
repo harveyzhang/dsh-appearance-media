@@ -116,7 +116,7 @@ const DOC_FILES = {
  *   (7) the token is not in PATH_EXEMPT — a short, explicit list of paths the
  *       documents attribute to ANOTHER project.
  */
-const PATH_REPO_ROOTS = new Set(['src', 'lib', 'tools', 'skills', 'docs', 'assets', 'locale', '.catalog'])
+const PATH_REPO_ROOTS = new Set(['src', 'lib', 'tools', 'scripts', 'skills', 'docs', 'locale', '.catalog'])
 const PATH_WORKSPACE_ROOTS = new Set(['DSH插件开发'])
 const PATH_KNOWN_EXTENSIONS = new Set([
   'md', 'mjs', 'js', 'json', 'yml', 'yaml', 'py', 'sh',

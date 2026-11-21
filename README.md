@@ -318,10 +318,10 @@ DSH 官方插件目录里的插件也基本都不打包素材。
 
 ```bash
 # 导入任意目录里的视频和图片
-python3 DSH插件开发/方案与工具/import-media-sources.py dir ~/Movies --apply
+python3 scripts/import-media-sources.py dir ~/Movies --apply
 
 # 导入 Wallpaper Engine 的视频壁纸
-python3 DSH插件开发/方案与工具/import-media-sources.py we /path/to/steamapps --apply
+python3 scripts/import-media-sources.py we /path/to/steamapps --apply
 ```
 
 > 上面命令里的路径相对 **DSH 插件开发工作区的根目录**。
@@ -337,15 +337,15 @@ python3 DSH插件开发/方案与工具/import-media-sources.py we /path/to/stea
 1. **在插件页面里上传** —— 卡片里的「素材库」下方，「导入一个视频或图片（≤ 96 MiB）」，单个文件传上去。
 2. **批量导入一个目录** —— 一条命令扫一个目录（见上面的 ②）：
    ```bash
-   python3 DSH插件开发/方案与工具/import-media-sources.py dir <目录>
+   python3 scripts/import-media-sources.py dir <目录>
    ```
    **默认只演练**，加 `--apply` 才真导入。
 3. **导入 Wallpaper Engine 的视频壁纸** ——
    ```bash
-   python3 DSH插件开发/方案与工具/import-media-sources.py we <WE 安装目录>
+   python3 scripts/import-media-sources.py we <WE 安装目录>
    ```
 
-**怎么加一个新的在线素材源**：编辑 `DSH插件开发/方案与工具/media-sources.json` 这个来源清单——
+**怎么加一个新的在线素材源**：编辑 `scripts/media-sources.json` 这个来源清单——
 每条源写着名称、URL 模板、许可说明。**在线抓取默认是关的**
 （清单里 `enabled` 默认是 `false`，要抓得用 `--source <名字>` 点名才生效）；
 清单里只留**许可说得清**的源，许可混杂的源不要往里加。
@@ -353,7 +353,7 @@ python3 DSH插件开发/方案与工具/import-media-sources.py we /path/to/stea
 想先看看清单里现在有什么（不联网）：
 
 ```bash
-python3 DSH插件开发/方案与工具/import-media-sources.py fetch --list
+python3 scripts/import-media-sources.py fetch --list
 ```
 
 #### 关于 Wallpaper Engine

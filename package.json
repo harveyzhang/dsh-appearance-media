@@ -25,6 +25,7 @@
     "docs",
     "lib",
     "skills",
+    "scripts",
     "src",
     "build-client.mjs"
   ],

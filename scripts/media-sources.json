@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "note": "在线素材来源清单。★ 抓取默认关闭 —— 只有 enabled=true 的源会被自动抓；别的源要用 --source <名字> 点名才生效。清单里每一条都必须写清许可；许可说不清的源不要往里加。",
+  "license_policy": "只收许可明确、允许本地使用的源。来源页/作者/许可会逐条写进素材库的出处记录（~/.dsh/dsh-appearance-media/sources.jsonl）。",
+  "sources": [
+    {
+      "name": "unsplash",
+      "enabled": false,
+      "license": "Unsplash License —— 免费用于商业与非商业用途，无需事先许可，不得原样售卖或作为壁纸应用的主体素材集转售。",
+      "license_url": "https://unsplash.com/license",
+      "attribution": "建议（非强制）在出处记录里保留作者名 —— 本工具会把作者写进记录的 detail.author 字段。",
+      "method": "unsplash-napi",
+      "api_key_env": "UNSPLASH_ACCESS_KEY",
+      "list_urls": [
+        "https://api.unsplash.com/search/photos?query={query}&per_page={limit}&page={page}&client_id={client_id}",
+        "https://unsplash.com/napi/search/photos?query={query}&per_page={limit}&page={page}"
+      ],
+      "ext": ".jpg",
+      "notes": "官方 API 需要 access key（环境变量 UNSPLASH_ACCESS_KEY）；没有 key 时退到免 key 的内部接口，那条路随时可能被风控挡（2026-11 实测返回 307 Authorization required）。图片按 fm=jpg 取，落在插件认的扩展名里。"
+    }
+  ],
+  "not_included": [
+    {
+      "name": "alphacoders",
+      "reference": "sakka6868/dsh-skin 的 src/fetch-alphacoders.ts（MIT）",
+      "why_not": "许可混杂：一部分图是 CC-BY / CC0，另一部分是「仅个人使用」或版权保留的，不是每个条目都能商用 —— 无法给出一条统一的商用许可说明。要用必须逐图核对作者与许可。"
+    },
+    {
+      "name": "desktophut",
+      "reference": "sakka6868/dsh-skin 的 src/fetch-desktophut.ts（MIT）",
+      "why_not": "站的素材来路不明、逐条许可不一致；而且它给的是「live wallpaper 片段」，直接当静态壁纸用等于拿别人的动画作品改包。"
+    },
+    {
+      "name": "moewalls",
+      "reference": "sakka6868/dsh-skin 的 src/fetch-moewalls.ts（MIT）",
+      "why_not": "动漫截图，版权属于原作方（动画公司/画师），不许可再分发；而且它有 Cloudflare，反爬要靠真实浏览器渲染 —— 本工具只有标准库，不带浏览器。"
+    }
+  ]
+}
