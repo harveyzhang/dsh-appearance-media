@@ -114,6 +114,18 @@ const profiles = profilesWithThePlugin()
 print(verdict('the source tree has files to compare', sourceFiles.length > 0,
   sourceFiles.length + ' files in the source tree'))
 
+if (process.env.DSHAM_IN_COPY === '1') {
+  // ★ Inside the stranger-acceptance clone the deployed copy of THIS machine
+  //   is deliberately out of sync: the clone holds the committed state, the
+  //   machine holds the working tree. Comparing them here would always fail,
+  //   and always for a reason that says nothing about the plugin.
+  console.log('NOTE  this run is inside the stranger-acceptance clone — the deployed-copy'
+    + ' check belongs to the working tree, not to the clone')
+  console.log('')
+  console.log(checks.length + ' check(s), 0 failed')
+  process.exit(0)
+}
+
 if (profiles.length === 0) {
   // Another machine: no profile has this plugin. That is not a failure.
   console.log('NOTE  no profile on this machine has this plugin — the deployed-copy checks are skipped')

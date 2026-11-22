@@ -215,10 +215,12 @@ function tail(text, lines = OUTPUT_QUOTE_LINES) {
  * @param {string[]} args - its arguments.
  * @param {string} cwd - the working directory.
  * @param {number} [timeoutMs] - an optional wall clock cap.
+ * @param {object} [env] - an optional environment for the child.
  * @returns {{ status: number | null, signal: string | null, stdout: string, stderr: string }} the result.
  */
-function run(command, args, cwd, timeoutMs) {
+function run(command, args, cwd, timeoutMs, env) {
   const options = { cwd, encoding: 'utf8', maxBuffer: MAX_BUFFER }
+  if (env !== undefined) options.env = env
   if (timeoutMs !== undefined) {
     options.timeout = timeoutMs
     options.killSignal = 'SIGKILL'
@@ -380,14 +382,20 @@ const TIMEOUT_COMMAND = (() => {
  * @param {string} name - the suite's base name.
  * @returns {{ name: string, status: number | null, signal: string | null, timedOut: boolean, durationMs: number, checks: number | null, failed: number | null, stdout: string, stderr: string }} the outcome.
  */
-function runSuite(root, name) {
+function runSuite(root, name, inCopy) {
   const script = join(root, 'tools', 'verify-' + name + '.mjs')
   const started = Date.now()
   let result
+  // ★ A suite that looks at THIS machine's deployed copy (the profile's
+  //   node_modules) cannot run inside the stranger-acceptance clone: the clone
+  //   holds the committed state while the machine holds the working tree, so
+  //   the two disagree BY CONSTRUCTION. Such suites are told they are in a
+  //   copy and skip the machine-specific part.
+  const env = inCopy === true ? { ...process.env, DSHAM_IN_COPY: '1' } : process.env
   if (TIMEOUT_COMMAND !== null) {
-    result = run(TIMEOUT_COMMAND, ['-k', '10', String(SUITE_TIMEOUT_SECONDS), process.execPath, script], root)
+    result = run(TIMEOUT_COMMAND, ['-k', '10', String(SUITE_TIMEOUT_SECONDS), process.execPath, script], root, undefined, env)
   } else {
-    result = run(process.execPath, [script], root, SUITE_TIMEOUT_MS)
+    result = run(process.execPath, [script], root, SUITE_TIMEOUT_MS, env)
   }
   const durationMs = Date.now() - started
   const timedOut = result.status === 124 || result.signal === 'SIGTERM' || result.signal === 'SIGKILL'
@@ -453,11 +461,11 @@ function suiteVerdict(result) {
  * @param {string} title - what this run is (used in the step header).
  * @returns {{ total: number, failed: number }} the totals.
  */
-function runAllSuites(root, title) {
+function runAllSuites(root, title, inCopy) {
   let total = 0
   let failed = 0
   for (const name of SUITE_NAMES) {
-    const result = runSuite(root, name)
+    const result = runSuite(root, name, inCopy)
     const check = suiteVerdict(result)
     print(check)
     if (result.checks !== null) total += result.checks
@@ -809,7 +817,7 @@ function main() {
           : '副本 HEAD: ' + cloneHead.stdout.trim() + '，仓库 HEAD: ' + head.stdout.trim()))
 
       const cloneSnapshot = snapshotTrackedFiles(cloneDir)
-      const cloneRun = runAllSuites(cloneDir, '副本里的断言套件')
+      const cloneRun = runAllSuites(cloneDir, '副本里的断言套件', true)
 
       const cloneAfter = snapshotTrackedFiles(cloneDir)
       const cloneChanges = diffSnapshots(cloneSnapshot, cloneAfter)
