@@ -457,7 +457,7 @@ node build-client.mjs
 
 ### 跑断言
 
-仓库里有 **16 套**离线断言，每套一个命令。**全绿才算完成。**
+仓库里有 **17 套**离线断言，每套一个命令。**全绿才算完成。**
 
 ```bash
 node tools/verify-access.mjs
@@ -465,6 +465,7 @@ node tools/verify-background.mjs
 node tools/verify-boot-screen.mjs
 node tools/verify-catalog.mjs
 node tools/verify-client-ui.mjs
+node tools/verify-deployed.mjs
 node tools/verify-docs.mjs
 node tools/verify-handover.mjs
 node tools/verify-media-delete.mjs

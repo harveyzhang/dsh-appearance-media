@@ -96,6 +96,7 @@ const SUITE_NAMES = [
   'boot-screen',
   'catalog',
   'client-ui',
+  'deployed',
   'docs',
   'handover',
   'media-delete',
