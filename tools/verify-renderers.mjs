@@ -120,9 +120,13 @@ function forbiddenShapes(text) {
 /**
  * Build a fake DOM: elements that remember what was done to them.
  *
+ * @param options - `playRefusesFirst`: the first `play()` on an element
+ *   rejects with a `NotAllowedError`, the way the browser refuses to start a
+ *   sound clip on a page without a user gesture. Every later call resolves,
+ *   the way a muted retry does.
  * @returns the fake DOM, with its call log and its element list.
  */
-function createFakeDom() {
+function createFakeDom(options = {}) {
   /** Every call, in order, from every source. */
   const calls = []
   /** Every element that was created. */
@@ -198,6 +202,16 @@ function createFakeDom() {
       play() {
         calls.push('play')
         element.paused = false
+        // ★ THE BROWSER'S REFUSAL. The first attempt on an unmuted element is
+        //   refused the way the autoplay policy refuses it; a muted retry is
+        //   allowed, and so is every later call.
+        if (options.playRefusesFirst === true && element.playAttempts === undefined) {
+          element.playAttempts = 1
+          const refusal = new Error('The play() request was interrupted by a new load request.')
+          refusal.name = 'NotAllowedError'
+          return Promise.reject(refusal)
+        }
+        element.playAttempts = (element.playAttempts ?? 0) + 1
         return Promise.resolve()
       },
       load() {
@@ -256,7 +270,7 @@ function createFakeDom() {
  * @returns the sandbox and the fake DOM.
  */
 function runSandbox(options = {}) {
-  const dom = createFakeDom()
+  const dom = createFakeDom(options.dom ?? {})
   const renderersText = options.renderers === undefined ? RENDERERS_TEXT : options.renderers
   const controllerText = options.controller === undefined ? CONTROLLER_TEXT : options.controller
   const fetchLog = []
@@ -587,6 +601,66 @@ try {
       element !== undefined && element !== null && dom.elements.length === 1
       && document.body.children.length === 0,
       'elements=' + String(dom.elements.length) + ' body=' + String(document.body.children.length))
+  }
+
+  /* ---- the autoplay refusal ---------------------------------------- */
+
+  {
+    // ★ THE BROWSER REFUSES TO START A SOUND CLIP BY ITSELF. The element
+    //   stays loaded and paused at frame zero, and the screen shows a clip
+    //   that never plays — which reads as "the same clip every time".
+    const run = runSandbox({ dom: { playRefusesFirst: true } })
+    const renderer = run.renderers.create(entry('up-sound'), { loop: false, muted: false, volume: 0.5 })
+    const element = renderer.el()
+    const downgrades = []
+    renderer.onDowngrade((reason) => { downgrades.push(reason) })
+    let settled = 'pending'
+    await renderer.start().then(() => { settled = 'resolved' }, () => { settled = 'rejected' })
+    const plays = run.dom.calls.filter((call) => call === 'play').length
+    record('#14a a refused autoplay is answered with a muted retry, and the clip plays',
+      settled === 'resolved' && element.muted === true && plays === 2,
+      'settled=' + settled + ' muted=' + String(element.muted) + ' plays=' + String(plays))
+    record('#14b the caller is told that the sound was given up',
+      downgrades.length === 1 && downgrades[0] === 'autoplay-refused',
+      'downgrades=' + JSON.stringify(downgrades))
+  }
+
+  {
+    // ★ AND A CLIP THAT IS ALLOWED TO START IS NOT DOWNGRADED. The fallback
+    //   must not fire on its own: a clip that was muted on purpose stays
+    //   muted, and a clip that was allowed to play keeps its sound.
+    const run = runSandbox({})
+    const renderer = run.renderers.create(entry('up-sound'), { loop: false, muted: false, volume: 0.5 })
+    const element = renderer.el()
+    const downgrades = []
+    renderer.onDowngrade((reason) => { downgrades.push(reason) })
+    let settled = 'pending'
+    await renderer.start().then(() => { settled = 'resolved' }, () => { settled = 'rejected' })
+    const plays = run.dom.calls.filter((call) => call === 'play').length
+    record('#14c a clip the browser allows to start is not downgraded',
+      settled === 'resolved' && element.muted === false && plays === 1 && downgrades.length === 0,
+      'settled=' + settled + ' muted=' + String(element.muted) + ' plays=' + String(plays)
+      + ' downgrades=' + JSON.stringify(downgrades))
+  }
+
+  {
+    // ★ REVERSE CONTROL: WITHOUT THE MUTED RETRY THE REFUSAL IS FATAL. This
+    //   is what the checks above would miss if the retry were removed from the
+    //   source: the clip stays paused at frame zero and nobody is told.
+    const broken = RENDERERS_TEXT.replace(
+      'if (video.muted === false && isAutoplayRefusal(error)) {',
+      'if (false) {')
+    const changed = broken !== RENDERERS_TEXT
+    const run = runSandbox({ dom: { playRefusesFirst: true }, renderers: broken })
+    const renderer = run.renderers.create(entry('up-sound'), { loop: false, muted: false, volume: 0.5 })
+    const element = renderer.el()
+    let settled = 'pending'
+    await renderer.start().then(() => { settled = 'resolved' }, () => { settled = 'rejected' })
+    const plays = run.dom.calls.filter((call) => call === 'play').length
+    record('#14d REVERSE CONTROL: without the muted retry the refusal leaves the clip stuck',
+      changed && settled === 'rejected' && element.muted === false && plays === 1,
+      'changed=' + String(changed) + ' settled=' + settled + ' muted=' + String(element.muted)
+      + ' plays=' + String(plays))
   }
 
   /* ---- the arbitration point --------------------------------------- */

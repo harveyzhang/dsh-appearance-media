@@ -701,6 +701,16 @@
     if (typeof renderer.onError === 'function') {
       renderer.onError(function (code) { onRendererError(token, code) })
     }
+    // ★ THE SAME ORDER FOR THE SOUND. A clip that had to be muted to start is
+    //   not a failure — the picture is on screen — but the user asked for sound
+    //   and did not get it, so the fact is published next to the material's own
+    //   facts and the surface can say so.
+    if (typeof renderer.onDowngrade === 'function') {
+      renderer.onDowngrade(function (reason) {
+        if (token !== applyToken) return
+        report(slot, { mutedDowngraded: true, mutedDowngradeReason: String(reason) })
+      })
+    }
     var started
     try {
       started = renderer.start()

@@ -185,6 +185,33 @@
     var endedCbs = []
     var errorCbs = []
     var stallCbs = []
+    var downgradeCbs = []
+
+    /**
+     * Whether an error is the browser refusing to start playback on its own.
+     *
+     * ★ THE BROWSER HAS A POLICY AND IT IS NOT NEGOTIABLE. A media element
+     * that is NOT muted may only start without a user gesture when the page
+     * already carries one. On a page that does not (the application was just
+     * launched and nobody has touched anything yet), the browser refuses with
+     * NotAllowedError — and the element stays paused at frame zero.
+     *
+     * ★ THAT IS NOT A GLITCH THE USER CAN SEE. The element is loaded, the
+     * decoder is ready, `readyState` is 4 — and nothing moves. The screen
+     * shows the first frame of a clip that never plays, and when the first
+     * frames of the clips are alike that looks exactly like "the same clip
+     * every time".
+     *
+     * @param error - the rejection.
+     * @returns {boolean} whether this is the autoplay policy.
+     */
+    function isAutoplayRefusal(error) {
+      if (error === undefined || error === null) return false
+      var name = typeof error.name === 'string' ? error.name : ''
+      if (name === 'NotAllowedError') return true
+      var code = typeof error.code === 'number' ? error.code : -1
+      return code === 0 || code === 1
+    }
 
     /**
      * "A frame exists" is not the same fact as "play() resolved": a resolved
@@ -226,7 +253,38 @@
     return {
       kind: 'video',
       el: function () { return video },
-      start: function () { return video.play() },
+      /**
+       * Start the clip.
+       *
+       * ★ THE BROWSER MAY REFUSE, AND THE CLIP MUST STILL PLAY.
+       *
+       * A sound clip cannot start by itself on a page without a user gesture.
+       * The rejection is not a failure of the material: the same clip, muted,
+       * is allowed to start. So the refusal is answered with a muted retry
+       * instead of an error — the screen gets its picture either way, and the
+       * caller is told that the sound was given up (`onDowngrade`) so it can
+       * say so.
+       *
+       * @returns a promise for the start, or undefined.
+       */
+      start: function () {
+        var promise = video.play()
+        if (promise === undefined || promise === null || typeof promise.catch !== 'function') {
+          return promise
+        }
+        return promise.catch(function (error) {
+          if (video.muted === false && isAutoplayRefusal(error)) {
+            // ★ THE MUTE HAS TO HAPPEN BEFORE THE RETRY, not after: the
+            //   element reads its muted state when the play is requested.
+            video.muted = true
+            for (var i = 0; i < downgradeCbs.length; i += 1) {
+              try { downgradeCbs[i]('autoplay-refused') } catch (failure) { /* a listener owns its own failure */ }
+            }
+            return video.play()
+          }
+          throw error
+        })
+      },
       /**
        * The teardown, in the fixed order: pause, clear the source, unbind the
        * listeners, drop the observers, clear the timers.
@@ -255,6 +313,12 @@
       onEnded: function (fn) { endedCbs.push(fn) },
       onError: function (fn) { errorCbs.push(fn) },
       onStall: function (fn) { stallCbs.push(fn) },
+      /**
+       * Report that the material had to give up its sound to start.
+       *
+       * @param fn - the listener; it receives the reason.
+       */
+      onDowngrade: function (fn) { downgradeCbs.push(fn) },
       duration: function () { return video.duration },
       currentTime: function () { return video.currentTime },
       isEnded: function () { return video.ended === true },

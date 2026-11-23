@@ -692,7 +692,31 @@
    * @returns the caption.
    */
   function playingCaption() {
-    return enterMode() === 'click' ? '点击或按任意键进入' : '正在启动 · 点一下提前进入'
+    var base = enterMode() === 'click' ? '点击或按任意键进入' : '正在启动 · 点一下提前进入'
+    return soundWasGivenUp() === true ? base + ' · 浏览器拦住了自动播放，已静音播放' : base
+  }
+
+  /**
+   * Whether the material had to give up its sound to start.
+   *
+   * ★ THE FACT COMES FROM THE ARBITRATION POINT, NOT FROM HERE. This surface
+   * asks the controller what it knows about its own slot, and the controller's
+   * answer is the one the material published.
+   *
+   * @returns {boolean} whether the sound was given up.
+   */
+  function soundWasGivenUp() {
+    var controller = arbitrationPoint()
+    if (controller === null) return false
+    try {
+      var current = controller.state()
+      if (current === undefined || current === null) return false
+      var slots = current.slots !== undefined && current.slots !== null ? current.slots : {}
+      var mine = slots[SLOT]
+      return mine !== undefined && mine !== null && mine.mutedDowngraded === true
+    } catch (error) {
+      return false
+    }
   }
 
   /**
@@ -1622,6 +1646,14 @@
       return
     }
     var changed = Array.isArray(payload.changed) ? payload.changed : []
+    // ★ THE SOUND WAS GIVEN UP. The clip is on screen, but the browser refused
+    //   to start it with sound, so the caption says so — and this is checked
+    //   BEFORE the "nothing changed for us" bail-out, because the downgrade IS
+    //   a change for this slot.
+    if (mine !== undefined && mine !== null && mine.mutedDowngraded === true
+      && clipState === 'playing' && materialApplied === true) {
+      setCaption(playingCaption(), false)
+    }
     if (changed.indexOf(SLOT) === -1 && payload.optionsChanged !== true) return
     refresh()
   }
