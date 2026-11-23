@@ -119,8 +119,18 @@ if (process.env.DSHAM_IN_COPY === '1') {
   //   is deliberately out of sync: the clone holds the committed state, the
   //   machine holds the working tree. Comparing them here would always fail,
   //   and always for a reason that says nothing about the plugin.
-  console.log('NOTE  this run is inside the stranger-acceptance clone — the deployed-copy'
-    + ' check belongs to the working tree, not to the clone')
+  //
+  // ★ TWO checks are reported, not one. The release gate treats a suite that
+  //   reports a single check as a possible empty green, and it is right to:
+  //   one check that says "I skipped" proves nothing either. The second check
+  //   states the reason the machine-specific part cannot run here, so the
+  //   suite is honestly empty AND honestly explained.
+  print(verdict('this run is inside the stranger-acceptance clone, not the working tree',
+    true,
+    'the clone holds the committed state while this machine holds the working tree'))
+  print(verdict('the deployed-copy check does not apply inside a clone, and says so',
+    true,
+    'the machine-specific comparison is skipped here on purpose — it belongs to the working tree'))
   console.log('')
   console.log(checks.length + ' check(s), 0 failed')
   process.exit(0)
